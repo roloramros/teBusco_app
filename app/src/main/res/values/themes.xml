@@ -1,0 +1,50 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.TeRecojo" parent="Theme.Material3.Light.NoActionBar">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/primary_blue</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">@color/primary_dark_blue</item>
+        <item name="colorOnPrimaryContainer">@color/white</item>
+
+        <!-- Secondary brand color. -->
+        <item name="colorSecondary">@color/text_secondary</item>
+        <item name="colorOnSecondary">@color/white</item>
+
+        <!-- Background and Surface -->
+        <item name="android:windowBackground">@color/background_light</item>
+        <item name="colorSurface">@color/surface_white</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSurfaceVariant">@color/background_light</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+
+        <!-- Status bar and Navigation bar -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
+
+        <!-- Error, Success, Warning (Custom) -->
+        <item name="colorError">@color/error_red</item>
+        <item name="colorOnError">@color/white</item>
+        
+        <!-- Typography Colors -->
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+
+        <!-- NavigationView Customization -->
+        <item name="navigationViewStyle">@style/Widget.App.NavigationView</item>
+        <item name="android:listPreferredItemPaddingStart">24dp</item>
+        <item name="android:listPreferredItemPaddingEnd">24dp</item>
+    </style>
+
+    <style name="Widget.App.NavigationView" parent="Widget.Material3.NavigationView">
+        <item name="itemTextAppearance">@style/NavMenuItemAppearance</item>
+    </style>
+
+    <style name="NavMenuItemAppearance" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
+</resources>

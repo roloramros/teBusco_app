@@ -1,0 +1,42 @@
+<resources>
+
+    <string name="app_name">Te Busco</string>
+    <string name="login_title">Iniciar Sesión</string>
+    <string name="username_hint">Usuario o No.Teléfono</string>
+    <string name="password_hint">Contraseña</string>
+    <string name="remember_me">Mantener logueado</string>
+    <string name="enter_button">Entrar</string>
+    <string name="not_registered">¿No tienes cuenta? Regístrate</string>
+    
+    <string name="register_title">Registro</string>
+    <string name="full_name_hint">Nombre Completo</string>
+    <string name="phone_hint">Teléfono</string>
+    <string name="province_hint">Provincia</string>
+    <string name="municipality_hint">Municipio</string>
+    <string name="passenger">Pasajero</string>
+    <string name="driver">Conductor</string>
+    <string name="register_button">Registrar</string>
+    <string name="navigation_drawer_open">Abrir menú de navegación</string>
+    <string name="navigation_drawer_close">Cerrar menú de navegación</string>
+    <string name="btn_publish_request">Publicar Solicitud</string>
+    <string name="btn_confirm_location">Confirmar Ubicación</string>
+    <string name="btn_confirm_point">Confirmar Punto</string>
+    <string name="btn_cancel">Cancelar</string>
+    <string name="btn_confirm_route">Confirmar Ruta</string>
+    <string name="msg_selecting_location">Toca el mapa o busca para fijar el punto</string>
+    <string name="msg_map_point">Punto en el mapa</string>
+    <string name="msg_geocoding">Buscando dirección...</string>
+    <string name="label_distance_default">Distancia: -- km</string>
+    <string name="label_distance_format">Distancia: %.1f km</string>
+    <string name="btn_calculate_route">CALCULAR RUTA</string>
+    <string name="msg_error_distance">Error al calcular distancia</string>
+    <string name="msg_select_points_first">Selecciona origen y destino primero</string>
+
+    <!-- Notificaciones -->
+    <string name="menu_mark_all_read">LEER TODAS</string>
+    <string name="menu_delete_all">LIMPIAR</string>
+    <string name="dialog_delete_all_title">Eliminar todo</string>
+    <string name="dialog_delete_all_msg">¿Estás seguro de que deseas eliminar todas las notificaciones? Esta acción no se puede deshacer.</string>
+    <string name="dialog_delete_all_positive">ELIMINAR TODO</string>
+    <string name="msg_notifications_cleared">Historial limpiado</string>
+</resources>

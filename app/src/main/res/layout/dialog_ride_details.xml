@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:cardCornerRadius="24dp"
+    app:cardElevation="8dp"
+    android:layout_margin="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Detalles del Viaje"
+            android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
+            android:textStyle="bold"
+            android:textColor="@color/primary_dark_blue"
+            android:layout_marginBottom="8dp"/>
+
+        <!-- Distancia del Recorrido -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+            
+            <TextView
+                android:id="@+id/tvDialogDistance"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Calculando distancia..."
+                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                android:textColor="@color/primary_blue"
+                android:textStyle="bold"/>
+
+            <ProgressBar
+                android:id="@+id/pbDialogDistance"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:visibility="visible"/>
+        </LinearLayout>
+
+        <!-- Fecha y Hora -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="¿Cuándo?"
+            android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+            android:layout_marginBottom="8dp"/>
+
+        <RadioGroup
+            android:id="@+id/rgDateTime"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+            <RadioButton
+                android:id="@+id/rbNow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Ahora"
+                android:checked="true"/>
+            <RadioButton
+                android:id="@+id/rbSchedule"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Viaje Programado"/>
+        </RadioGroup>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPickDateTime"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Seleccionar fecha y hora"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp"
+            app:icon="@android:drawable/ic_menu_today"/>
+
+        <!-- Pasajeros y Carga -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:baselineAligned="false"
+            android:layout_marginBottom="16dp">
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="Pasajeros"
+                android:layout_marginEnd="8dp">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etPassengers"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="number"
+                    android:text="1"/>
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1.5"
+                android:hint="Tipo de carga">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etCargoType"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text"/>
+            </com.google.android.material.textfield.TextInputLayout>
+        </LinearLayout>
+
+        <!-- Observaciones -->
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Observaciones"
+            android:layout_marginBottom="16dp">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etObservations"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textMultiLine"
+                android:minLines="2"
+                android:gravity="top"/>
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Monedas de Pago -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Pago disponible en:"
+            android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+            android:layout_marginBottom="8dp"/>
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/cgCurrencies"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:singleSelection="false"
+            android:layout_marginBottom="24dp">
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipCUP"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CUP"
+                android:checked="true"/>
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipUSD"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="USD"/>
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipMLC"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="MLC"/>
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipEuro"
+                style="@style/Widget.Material3.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="EURO"/>
+        </com.google.android.material.chip.ChipGroup>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFinalPublish"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="PUBLICAR SOLICITUD"
+            app:cornerRadius="16dp"
+            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"/>
+
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

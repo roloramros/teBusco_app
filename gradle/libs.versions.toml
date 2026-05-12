@@ -1,0 +1,44 @@
+[versions]
+agp = "9.1.1"
+junit = "4.13.2"
+junitVersion = "1.3.0"
+espressoCore = "3.7.0"
+appcompat = "1.7.1"
+material = "1.13.0"
+activity = "1.10.1"
+retrofit = "2.11.0"
+gson = "2.11.0"
+lifecycle = "2.8.4"
+glide = "4.16.0"
+exifinterface = "1.3.7"
+googleMaps = "18.2.0"
+swiperefreshlayout = "1.1.0"
+googleServices = "4.4.2"
+firebaseBom = "33.9.0"
+googlePlaces = "3.3.0"
+
+[libraries]
+google-places = { group = "com.google.android.libraries.places", name = "places", version.ref = "googlePlaces" }
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
+swiperefreshlayout = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "swiperefreshlayout" }
+exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
+gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+lifecycle-viewmodel = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
+lifecycle-livedata = { group = "androidx.lifecycle", name = "lifecycle-livedata-ktx", version.ref = "lifecycle" }
+google-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "googleMaps" }
+glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
+glide-compiler = { group = "com.github.bumptech.glide", name = "compiler", version.ref = "glide" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
+

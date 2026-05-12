@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Paleta Confianza Moderna -->
+    <color name="background_light">#F5F7FA</color>
+    <color name="surface_white">#FFFFFF</color>
+    <color name="primary_blue">#1E88E5</color>
+    <color name="primary_dark_blue">#1565C0</color>
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#546E7A</color>
+    <color name="success_green">#4CAF50</color>
+    <color name="warning_amber">#FF9800</color>
+    <color name="error_red">#E53935</color>
+
+    <color name="gray_light">#BDBDBD</color>
+    <color name="gray_dark">#616161</color>
+    <color name="offer_gold">#FFD700</color>
+
+    <!-- Basic colors -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

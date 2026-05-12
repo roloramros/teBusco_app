@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <group android:checkableBehavior="single">
+        <!-- Pasajero -->
+        <item
+            android:id="@+id/nav_request_service"
+            android:icon="@drawable/ic_location_pin"
+            android:title="Solicitar Servicio" />
+        <item
+            android:id="@+id/nav_trips"
+            android:icon="@android:drawable/ic_menu_agenda"
+            android:title="Mis Solicitudes" />
+        <item
+            android:id="@+id/nav_frequent_sites"
+            android:icon="@android:drawable/ic_menu_mylocation"
+            android:title="Sitios Frecuentes" />
+
+        <!-- Chofer -->
+        <item
+            android:id="@+id/nav_profile"
+            android:icon="@android:drawable/ic_menu_myplaces"
+            android:title="Panel de Solicitudes" />
+        <item
+            android:id="@+id/nav_driver_radar"
+            android:icon="@android:drawable/ic_menu_compass"
+            android:title="Radar de Solicitudes" />
+        <item
+            android:id="@+id/nav_my_vehicles"
+            android:icon="@android:drawable/ic_menu_directions"
+            android:title="Mis Vehículos" />
+            
+        <!-- General -->
+        <item
+            android:id="@+id/nav_driver_oferts"
+            android:icon="@android:drawable/ic_menu_search"
+            android:title="Explorar Ofertas" />
+    </group>
+</menu>
