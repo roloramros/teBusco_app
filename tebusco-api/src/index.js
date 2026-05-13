@@ -11,6 +11,7 @@ import geoRoutes  from './routes/geo.js'
 import vehicleRoutes from './routes/vehicle.js'
 import solicitudRoutes from './routes/solicitud.js'
 import notificationRoutes from './routes/notification.js'
+import adminRoutes from './routes/admin.js'
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
 
 const app  = express()
@@ -96,6 +97,9 @@ app.use('/api/solicitudes', solicitudRoutes)
 
 // Rutas de notificaciones — privadas
 app.use('/api/notificaciones', notificationRoutes)
+
+// Rutas de administración
+app.use('/api/admin', adminRoutes)
 
 // ══════════════════════════════════════════════════════════
 // MANEJO DE ERRORES (siempre al final)
