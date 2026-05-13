@@ -158,6 +158,25 @@ public class DriverProfileActivity extends BaseActivity implements RideRequestAd
         finish();
     }
 
+    private void updateEmptyState(boolean isEmpty) {
+        if (isEmpty) {
+            profileBinding.layoutEmpty.getRoot().setVisibility(View.VISIBLE);
+            profileBinding.swipeRefreshRadar.setVisibility(View.GONE);
+
+            profileBinding.layoutEmpty.ivEmptyIcon.setImageResource(android.R.drawable.ic_menu_compass);
+            profileBinding.layoutEmpty.tvEmptyTitle.setText(R.string.empty_radar_title);
+            profileBinding.layoutEmpty.tvEmptyDescription.setText(R.string.empty_radar_desc);
+            profileBinding.layoutEmpty.btnEmptyAction.setText(R.string.empty_radar_action);
+            profileBinding.layoutEmpty.btnEmptyAction.setOnClickListener(v -> {
+                profileBinding.swipeRefreshRadar.setRefreshing(true);
+                loadRequests();
+            });
+        } else {
+            profileBinding.layoutEmpty.getRoot().setVisibility(View.GONE);
+            profileBinding.swipeRefreshRadar.setVisibility(View.VISIBLE);
+        }
+    }
+
     private void setupSwipeRefresh() {
         profileBinding.swipeRefreshRadar.setOnRefreshListener(this::loadRequests);
         profileBinding.swipeRefreshRadar.setColorSchemeResources(R.color.primary_dark_blue);
@@ -172,12 +191,14 @@ public class DriverProfileActivity extends BaseActivity implements RideRequestAd
                     requests.clear();
                     requests.addAll(response.body().getData());
                     adapter.notifyDataSetChanged();
+                    updateEmptyState(requests.isEmpty());
                 }
             }
 
             @Override
             public void onFailure(Call<ApiResponse<List<RideRequest>>> call, Throwable t) {
                 profileBinding.swipeRefreshRadar.setRefreshing(false);
+                updateEmptyState(requests.isEmpty());
                 Toast.makeText(DriverProfileActivity.this, "Error al cargar radar", Toast.LENGTH_SHORT).show();
             }
         });

@@ -36,6 +36,10 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
+                <include
+                    android:id="@+id/layoutEmpty"
+                    layout="@layout/layout_empty_state" />
+
                 <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
                     android:id="@+id/swipeRefreshRadar"
                     android:layout_width="match_parent"
