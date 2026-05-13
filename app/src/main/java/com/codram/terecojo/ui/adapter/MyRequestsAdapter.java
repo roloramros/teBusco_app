@@ -18,6 +18,7 @@ public class MyRequestsAdapter extends RecyclerView.Adapter<MyRequestsAdapter.Vi
     public interface OnRequestClickListener {
         void onViewOffers(RideRequest request);
         void onCancel(RideRequest request);
+        void onFinish(RideRequest request);
     }
 
     public MyRequestsAdapter(List<RideRequest> requests, OnRequestClickListener listener) {
@@ -104,6 +105,10 @@ public class MyRequestsAdapter extends RecyclerView.Adapter<MyRequestsAdapter.Vi
             btnCancelActive = itemView.findViewById(R.id.btnCancelActive);
             layoutInProgressActions = itemView.findViewById(R.id.layoutInProgressActions);
             layoutActiveActions = itemView.findViewById(R.id.layoutActiveActions);
+        }
+    }
+}
+utActiveActions = itemView.findViewById(R.id.layoutActiveActions);
         }
     }
 }

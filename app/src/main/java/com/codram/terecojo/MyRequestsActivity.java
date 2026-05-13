@@ -24,16 +24,26 @@ import retrofit2.Response;
 
 import com.codram.terecojo.utils.ErrorUtils;
 
-public class MyRequestsActivity extends BaseActivity implements MyRequestsAdapter.OnRequestClickListener {
+import com.codram.terecojo.ui.dialog.RatingDialogFragment;
+import com.codram.terecojo.ui.viewmodel.MainViewModel;
+import com.google.android.material.snackbar.Snackbar;
+import androidx.lifecycle.ViewModelProvider;
+
+public class MyRequestsActivity extends BaseActivity implements MyRequestsAdapter.OnRequestClickListener, RatingDialogFragment.OnRatingSubmitListener {
     private ActivityMyRequestsBinding binding;
     private MyRequestsAdapter adapter;
+    private MainViewModel viewModel;
     private List<RideRequest> myRequests = new ArrayList<>();
+    private String currentSolicitudId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivityMyRequestsBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+        viewModel = new ViewModelProvider(this).get(MainViewModel.class);
+        setupObservers();
 
         setupDrawer();
         
@@ -249,6 +259,25 @@ public class MyRequestsActivity extends BaseActivity implements MyRequestsAdapte
             @Override
             public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
                 Toast.makeText(MyRequestsActivity.this, "Error de red", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void showImagePreview(String imageUrl) {
+        android.app.Dialog dialog = new android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        dialog.setContentView(R.layout.dialog_image_preview);
+        android.widget.ImageView ivFull = dialog.findViewById(R.id.ivFullImage);
+        
+        com.bumptech.glide.Glide.with(this)
+                .load(imageUrl)
+                .fitCenter()
+                .into(ivFull);
+
+        ivFull.setOnClickListener(v -> dialog.dismiss());
+        dialog.show();
+    }
+}
+tivity.this, "Error de red", Toast.LENGTH_SHORT).show();
             }
         });
     }

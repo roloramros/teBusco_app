@@ -99,6 +99,12 @@ public interface ApiService {
     @POST("api/solicitudes/{id}/cancelar")
     Call<ApiResponse<Void>> cancelarSolicitud(@Path("id") String id);
 
+    @POST("api/solicitudes/{id}/finalizar")
+    Call<ApiResponse<Object>> finalizarViaje(
+            @Path("id") String solicitudId,
+            @Body FinalizeRideRequest body
+    );
+
     @GET("api/solicitudes/{id}")
     Call<ApiResponse<RideRequest>> getSolicitudById(@Path("id") String id);
 
