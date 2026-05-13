@@ -87,6 +87,25 @@ public class MyRequestsActivity extends BaseActivity implements MyRequestsAdapte
         }
     }
 
+    private void updateEmptyState(boolean isEmpty) {
+        if (isEmpty) {
+            binding.layoutEmpty.getRoot().setVisibility(View.VISIBLE);
+            binding.swipeRefresh.setVisibility(View.GONE);
+
+            binding.layoutEmpty.ivEmptyIcon.setImageResource(android.R.drawable.ic_menu_recent_history);
+            binding.layoutEmpty.tvEmptyTitle.setText(R.string.empty_history_title);
+            binding.layoutEmpty.tvEmptyDescription.setText(R.string.empty_history_desc);
+            binding.layoutEmpty.btnEmptyAction.setText(R.string.empty_history_action);
+            binding.layoutEmpty.btnEmptyAction.setOnClickListener(v -> {
+                startActivity(new android.content.Intent(this, MainActivity.class));
+                finish();
+            });
+        } else {
+            binding.layoutEmpty.getRoot().setVisibility(View.GONE);
+            binding.swipeRefresh.setVisibility(View.VISIBLE);
+        }
+    }
+
     private void setupSwipeRefresh() {
         binding.swipeRefresh.setColorSchemeColors(getResources().getColor(R.color.primary_blue));
         binding.swipeRefresh.setOnRefreshListener(this::fetchMyRequests);
@@ -112,12 +131,14 @@ public class MyRequestsActivity extends BaseActivity implements MyRequestsAdapte
                     myRequests.clear();
                     myRequests.addAll(response.body().getData());
                     adapter.notifyDataSetChanged();
+                    updateEmptyState(myRequests.isEmpty());
                 }
             }
 
             @Override
             public void onFailure(Call<ApiResponse<List<RideRequest>>> call, Throwable t) {
                 binding.swipeRefresh.setRefreshing(false);
+                updateEmptyState(myRequests.isEmpty());
                 Toast.makeText(MyRequestsActivity.this, "Error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
