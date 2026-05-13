@@ -1,37 +1,77 @@
-🔴 Problema 1 — El botón "Finalizar viaje" nunca llama al listener (bug crítico)
-En MyRequestsAdapter, btnFinishTrip se vincula en el ViewHolder pero nunca se le asigna un setOnClickListener. El código solo pone el listener de btnCancelActive y btnViewOffers. El botón va a estar visible cuando el estado es en_proceso, pero al presionarlo no va a pasar nada. Falta añadir:
-javaholder.btnFinishTrip.setOnClickListener(v -> {
-    if (listener != null) listener.onFinish(request);
-});
+Eres un desarrollador backend senior. Voy a darte el contexto de un proyecto y necesito 
+que implementes una feature específica.
 
-🔴 Problema 2 — onFinish no está implementado en MyRequestsActivity
-La Activity implementa MyRequestsAdapter.OnRequestClickListener y declara que implementa onFinish, pero el método no aparece en ninguna parte del archivo. Al compilar va a fallar, o si el IDE lo resuelve vacío, al presionar el botón no va a abrir el dialog. Falta:
-java@Override
-public void onFinish(RideRequest request) {
-    currentSolicitudId = request.getId();
-    RatingDialogFragment dialog = new RatingDialogFragment();
-    dialog.setOnRatingSubmitListener(this);
-    dialog.show(getSupportFragmentManager(), "rating");
-}
+## CONTEXTO DEL PROYECTO
 
-🔴 Problema 3 — onSubmit tampoco aparece en MyRequestsActivity
-La Activity implementa RatingDialogFragment.OnRatingSubmitListener en la firma de la clase, pero el método onSubmit no está. Falta:
-java@Override
-public void onSubmit(int estrellas, String comentario) {
-    viewModel.finalizarViaje(currentSolicitudId, estrellas, comentario);
-}
-Y los observers del ViewModel tampoco están en setupObservers() (o ese método no está en el archivo). Debes añadir:
-javaviewModel.getViajeFinalizadoExito().observe(this, exito -> {
-    if (Boolean.TRUE.equals(exito)) {
-        Snackbar.make(binding.getRoot(), "¡Viaje finalizado! Gracias por tu valoración", Snackbar.LENGTH_LONG).show();
-        fetchMyRequests();
-    }
-});
-viewModel.getFinalizarViajeError().observe(this, error -> {
-    if (error != null)
-        Snackbar.make(binding.getRoot(), error, Snackbar.LENGTH_LONG).show();
-});
+API REST en Node.js con Express 5, ES Modules, PostgreSQL (cliente `pg`), y Firebase Admin 
+para notificaciones push. Archivos relevantes:
 
+- `src/controllers/authController.js` — controlador de autenticación (contiene `registro`)
+- `src/services/notificationService.js` — exporta `sendNotification(...)`
 
-En dialog_rating.xml el RatingBar tiene style="?android:attr/ratingBarStyleIndicator" pero al mismo tiempo android:isIndicator="false". Estos dos se contradicen: el estilo Indicator hace las estrellas pequeñas y en algunos dispositivos las deja no interactivas visualmente. Cámbialo por el estilo normal:
-xmlstyle="?android:attr/ratingBarStyle"
+### Firma de sendNotification (úsala exactamente así):
+```js
+await sendNotification({
+  usuario_id,        // UUID del receptor
+  actor_id,          // null si es el sistema quien notifica
+  tipo,              // string del enum tipo_notificacion_v2
+  titulo,            // string
+  cuerpo,            // string
+  datos_extra,       // objeto plano { clave: valor } — los valores se convierten a string internamente
+  fcm_token          // string | null — el token FCM del dispositivo del receptor
+})
+```
+
+`sendNotification` ya maneja internamente dos cosas a la vez:
+1. Persistencia en la tabla `notificaciones` de la BD (el usuario la verá en su panel)
+2. Envío del push via Firebase Cloud Messaging al dispositivo
+
+No es necesario hacer ningún INSERT adicional en `notificaciones` ni llamar a Firebase directamente.
+
+### Enum relevante en la BD:
+El campo `tipo` debe ser uno de los valores del enum `tipo_notificacion_v2`. 
+El valor apropiado para mensajes del sistema es `'sistema_alerta'`.
+
+## FUNCIÓN A MODIFICAR
+
+La función `registro` en `authController.js`. Ya hace:
+1. Validaciones (username, email, teléfono únicos)
+2. Hash de contraseña
+3. INSERT en `usuarios`
+4. Si es chofer, INSERT en `choferes`
+5. Genera JWT y crea sesión
+6. Hace `COMMIT` y retorna `response.created(...)` con el token y datos del usuario
+
+## FEATURE A IMPLEMENTAR
+
+Después del `COMMIT` y antes del `return response.created(...)`, añadir el envío de una 
+notificación de bienvenida al nuevo usuario. La notificación debe:
+
+- Usar `usuario_id` del usuario recién creado
+- `actor_id`: null (es el sistema quien notifica, no otro usuario)
+- `tipo`: `'sistema_alerta'`
+- `titulo`: `'¡Bienvenido a Te Busco! 🚕'`
+- `cuerpo`: personalizado según el tipo de usuario:
+  - Si `tipo === 'pasajero'`: `'Tu cuenta está lista. ¡Publica tu primera solicitud de viaje y encuentra tu chofer!'`
+  - Si `tipo === 'chofer'`: `'Tu cuenta está lista. ¡Empieza a responder solicitudes y gana dinero con Tu Vehículo!'`
+  - Para cualquier otro tipo: `'Tu cuenta ha sido creada con éxito. ¡Bienvenido!'`
+- `datos_extra`: `{}` (objeto vacío)
+- `fcm_token`: usar el `fcm_token` que viene del body del request (ya está desestructurado 
+  al inicio de la función como `const { ..., fcm_token } = req.body`). Puede ser null si 
+  el usuario no lo envió — `sendNotification` lo maneja sin problema.
+
+## REGLAS IMPORTANTES
+
+- El import de `sendNotification` debe añadirse al inicio del archivo si no existe ya.
+- El envío de la notificación va FUERA de la transacción (después del COMMIT), igual que 
+  en `solicitudController.js`. Nunca dentro del bloque try/catch de la transacción, para 
+  no hacer rollback si falla la notificación.
+- Si `sendNotification` lanza un error, no debe romper el flujo — envuélvela en un 
+  try/catch propio que solo haga `console.error(...)` y continúe.
+- No modifiques ningún otro archivo ni ninguna otra función del proyecto.
+
+## ENTREGABLE
+
+Solo los cambios necesarios en `authController.js`: el import añadido (si no existe) 
+y el bloque de notificación insertado en la función `registro`. Muestra el diff o el 
+fragmento modificado, no el archivo completo.

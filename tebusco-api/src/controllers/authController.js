@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs'
 import { query, getClient } from '../config/database.js'
 import { generateToken } from '../utils/jwt.js'
 import * as response from '../utils/response.js'
+import { sendNotification } from '../services/notificationService.js'
 
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '12')
 
@@ -136,6 +137,28 @@ export const registro = async (req, res) => {
     )
 
     await client.query('COMMIT')
+
+    // Envío de notificación de bienvenida (fuera de la transacción)
+    try {
+      let cuerpoNotif = 'Tu cuenta ha sido creada con éxito. ¡Bienvenido!'
+      if (tipo === 'pasajero') {
+        cuerpoNotif = 'Tu cuenta está lista. ¡Publica tu primera solicitud de viaje y encuentra tu chofer!'
+      } else if (tipo === 'chofer') {
+        cuerpoNotif = 'Tu cuenta está lista. ¡Empieza a responder solicitudes y gana dinero con Tu Vehículo!'
+      }
+
+      await sendNotification({
+        usuario_id: usuario.id,
+        actor_id: null,
+        tipo: 'sistema_alerta',
+        titulo: '¡Bienvenido a Te Busco! 🚕',
+        cuerpo: cuerpoNotif,
+        datos_extra: {},
+        fcm_token: fcm_token
+      })
+    } catch (notifErr) {
+      console.error('⚠️ Error al enviar notificación de bienvenida:', notifErr.message)
+    }
 
     return response.created(res, {
       token,
