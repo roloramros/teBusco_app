@@ -2,6 +2,7 @@ package com.codram.terecojo.data.remote;
 
 import com.codram.terecojo.data.model.ApiResponse;
 import com.codram.terecojo.data.model.AuthResponse;
+import com.codram.terecojo.data.model.FinalizeRideRequest;
 import com.codram.terecojo.data.model.FcmTokenRequest;
 import com.codram.terecojo.data.model.LoginRequest;
 import com.codram.terecojo.data.model.MunicipalityResponse;

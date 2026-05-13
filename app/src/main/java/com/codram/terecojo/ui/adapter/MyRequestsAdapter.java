@@ -83,6 +83,10 @@ public class MyRequestsAdapter extends RecyclerView.Adapter<MyRequestsAdapter.Vi
         holder.btnCancelActive.setOnClickListener(v -> {
             if (listener != null) listener.onCancel(request);
         });
+
+        holder.btnFinishTrip.setOnClickListener(v -> {
+            if (listener != null) listener.onFinish(request);
+        });
     }
 
     @Override
@@ -105,10 +109,6 @@ public class MyRequestsAdapter extends RecyclerView.Adapter<MyRequestsAdapter.Vi
             btnCancelActive = itemView.findViewById(R.id.btnCancelActive);
             layoutInProgressActions = itemView.findViewById(R.id.layoutInProgressActions);
             layoutActiveActions = itemView.findViewById(R.id.layoutActiveActions);
-        }
-    }
-}
-utActiveActions = itemView.findViewById(R.id.layoutActiveActions);
         }
     }
 }

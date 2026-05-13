@@ -57,6 +57,36 @@ public class MyRequestsActivity extends BaseActivity implements MyRequestsAdapte
         fetchMyRequests();
     }
 
+    private void setupObservers() {
+        viewModel.getViajeFinalizadoExito().observe(this, exito -> {
+            if (exito != null && exito) {
+                Snackbar.make(binding.getRoot(), "¡Viaje finalizado! Gracias por tu valoración", Snackbar.LENGTH_LONG).show();
+                fetchMyRequests();
+            }
+        });
+
+        viewModel.getFinalizarViajeError().observe(this, error -> {
+            if (error != null) {
+                Snackbar.make(binding.getRoot(), error, Snackbar.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    @Override
+    public void onFinish(RideRequest request) {
+        this.currentSolicitudId = request.getId();
+        RatingDialogFragment dialog = new RatingDialogFragment();
+        dialog.setOnRatingSubmitListener(this);
+        dialog.show(getSupportFragmentManager(), "RatingDialog");
+    }
+
+    @Override
+    public void onSubmit(int estrellas, String comentario) {
+        if (currentSolicitudId != null) {
+            viewModel.finalizarViaje(currentSolicitudId, estrellas, comentario);
+        }
+    }
+
     private void setupSwipeRefresh() {
         binding.swipeRefresh.setColorSchemeColors(getResources().getColor(R.color.primary_blue));
         binding.swipeRefresh.setOnRefreshListener(this::fetchMyRequests);
@@ -259,25 +289,6 @@ public class MyRequestsActivity extends BaseActivity implements MyRequestsAdapte
             @Override
             public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
                 Toast.makeText(MyRequestsActivity.this, "Error de red", Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-    private void showImagePreview(String imageUrl) {
-        android.app.Dialog dialog = new android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
-        dialog.setContentView(R.layout.dialog_image_preview);
-        android.widget.ImageView ivFull = dialog.findViewById(R.id.ivFullImage);
-        
-        com.bumptech.glide.Glide.with(this)
-                .load(imageUrl)
-                .fitCenter()
-                .into(ivFull);
-
-        ivFull.setOnClickListener(v -> dialog.dismiss());
-        dialog.show();
-    }
-}
-tivity.this, "Error de red", Toast.LENGTH_SHORT).show();
             }
         });
     }

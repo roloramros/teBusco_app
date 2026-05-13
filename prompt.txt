@@ -1,75 +1,37 @@
-Eres un desarrollador Android senior. Voy a darte el contexto de un proyecto y necesito que implementes una feature específica.
+🔴 Problema 1 — El botón "Finalizar viaje" nunca llama al listener (bug crítico)
+En MyRequestsAdapter, btnFinishTrip se vincula en el ViewHolder pero nunca se le asigna un setOnClickListener. El código solo pone el listener de btnCancelActive y btnViewOffers. El botón va a estar visible cuando el estado es en_proceso, pero al presionarlo no va a pasar nada. Falta añadir:
+javaholder.btnFinishTrip.setOnClickListener(v -> {
+    if (listener != null) listener.onFinish(request);
+});
 
-## CONTEXTO DEL PROYECTO
+🔴 Problema 2 — onFinish no está implementado en MyRequestsActivity
+La Activity implementa MyRequestsAdapter.OnRequestClickListener y declara que implementa onFinish, pero el método no aparece en ninguna parte del archivo. Al compilar va a fallar, o si el IDE lo resuelve vacío, al presionar el botón no va a abrir el dialog. Falta:
+java@Override
+public void onFinish(RideRequest request) {
+    currentSolicitudId = request.getId();
+    RatingDialogFragment dialog = new RatingDialogFragment();
+    dialog.setOnRatingSubmitListener(this);
+    dialog.show(getSupportFragmentManager(), "rating");
+}
 
-App Android en Java (no Kotlin). Arquitectura: Activities + ViewModel + LiveData + Retrofit2 + Gson. ViewBinding habilitado. El proyecto sigue estos patrones:
+🔴 Problema 3 — onSubmit tampoco aparece en MyRequestsActivity
+La Activity implementa RatingDialogFragment.OnRatingSubmitListener en la firma de la clase, pero el método onSubmit no está. Falta:
+java@Override
+public void onSubmit(int estrellas, String comentario) {
+    viewModel.finalizarViaje(currentSolicitudId, estrellas, comentario);
+}
+Y los observers del ViewModel tampoco están en setupObservers() (o ese método no está en el archivo). Debes añadir:
+javaviewModel.getViajeFinalizadoExito().observe(this, exito -> {
+    if (Boolean.TRUE.equals(exito)) {
+        Snackbar.make(binding.getRoot(), "¡Viaje finalizado! Gracias por tu valoración", Snackbar.LENGTH_LONG).show();
+        fetchMyRequests();
+    }
+});
+viewModel.getFinalizarViajeError().observe(this, error -> {
+    if (error != null)
+        Snackbar.make(binding.getRoot(), error, Snackbar.LENGTH_LONG).show();
+});
 
-- Los ViewModels extienden `AndroidViewModel` y usan `MutableLiveData`
-- Las llamadas a la API se hacen con `Call<ApiResponse<T>>` y callbacks Retrofit estándar
-- Los diálogos usan `DialogFragment` (ver `AddVehicleDialogFragment` como referencia de estilo)
-- `SessionManager` gestiona el token JWT almacenado en `SharedPreferences`
-- `RetrofitClient` construye la instancia de Retrofit con el token en el header
 
-### Clases relevantes existentes:
-- `MyRequestsActivity` — muestra la lista de solicitudes del pasajero
-- `MyRequestsAdapter` — adapter del RecyclerView de solicitudes
-- `MainViewModel` — ViewModel que ya tiene métodos de solicitudes
-- `ApiService` — interfaz Retrofit con todos los endpoints
-- `RideRequest` — modelo de solicitud (tiene campos: `id`, `estado`, `choferSeleccionadoId`, etc.)
-- `ApiResponse<T>` — wrapper genérico: `{ boolean ok, String message, T data }`
-
-## FEATURE A IMPLEMENTAR
-
-### 1. Modelo de request
-Crear la clase `FinalizeRideRequest` con los campos `estrellas` (int) y `comentario` (String, puede ser null).
-
-### 2. ApiService
-Añadir el endpoint:
-```java
-@POST("api/solicitudes/{id}/finalizar")
-Call<ApiResponse<Object>> finalizarViaje(
-    @Path("id") String solicitudId,
-    @Body FinalizeRideRequest body
-);
-```
-
-### 3. ViewModel
-En `MainViewModel`, añadir:
-- `MutableLiveData<String> finalizarViajeError`
-- `MutableLiveData<Boolean> viajeFinalizadoExito`
-- Método `finalizarViaje(String solicitudId, int estrellas, String comentario)` que llame al endpoint y actualice los LiveData correspondientes
-
-### 4. Dialog de valoración (`RatingDialogFragment`)
-Crear un `DialogFragment` con:
-- Título: "¿Cómo estuvo el viaje?"
-- Un `RatingBar` (estilo nativo Android, 5 estrellas, stepSize 1.0) para seleccionar la puntuación — no usar librerías externas
-- Un `TextInputLayout` + `TextInputEditText` con hint "Deja un comentario (opcional)" y `inputType textMultiLine`, máximo 200 caracteres
-- Botón "Enviar" deshabilitado por defecto, se habilita cuando `RatingBar` > 0
-- Botón "Cancelar" que cierra el dialog
-- Comunicación con la Activity via interfaz: `interface OnRatingSubmitListener { void onSubmit(int estrellas, String comentario); }`
-- La Activity/Fragment que lo use debe implementar esa interfaz
-
-### 5. MyRequestsAdapter
-En el método que renderiza cada tarjeta de solicitud, añadir lógica para mostrar un botón "Finalizar viaje" únicamente cuando `rideRequest.getEstado().equals("en_proceso")`. El click en ese botón debe invocar un callback al Activity (usar el mismo patrón de listener que ya tiene el adapter para otros botones).
-
-### 6. MyRequestsActivity
-- Implementar `RatingDialogFragment.OnRatingSubmitListener`
-- Al recibir el callback del adapter (botón "Finalizar viaje" presionado), guardar el `solicitudId` actual y mostrar `RatingDialogFragment`
-- En `onSubmit`, llamar a `viewModel.finalizarViaje(...)` 
-- Observar `viajeFinalizadoExito`: cuando sea `true`, mostrar un `Snackbar` con "¡Viaje finalizado! Gracias por tu valoración" y recargar la lista de solicitudes
-- Observar `finalizarViajeError`: mostrar el mensaje de error en un `Snackbar`
-
-## REGLAS DE ESTILO
-- Java puro, sin lambdas de streams, sin Kotlin
-- Usa `Objects.requireNonNull` si necesitas null-checks en el ViewModel
-- No uses librerías que no estén ya en el proyecto
-- Sigue exactamente el mismo estilo de los archivos existentes
-- No modifiques nada fuera de los archivos indicados
-
-## ENTREGABLES
-1. `FinalizeRideRequest.java`
-2. Cambios en `ApiService.java`
-3. Cambios en `MainViewModel.java`
-4. `RatingDialogFragment.java` + su layout XML `dialog_rating.xml`
-5. Cambios en `MyRequestsAdapter.java`
-6. Cambios en `MyRequestsActivity.java`
+En dialog_rating.xml el RatingBar tiene style="?android:attr/ratingBarStyleIndicator" pero al mismo tiempo android:isIndicator="false". Estos dos se contradicen: el estilo Indicator hace las estrellas pequeñas y en algunos dispositivos las deja no interactivas visualmente. Cámbialo por el estilo normal:
+xmlstyle="?android:attr/ratingBarStyle"
