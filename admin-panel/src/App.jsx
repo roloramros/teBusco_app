@@ -4,6 +4,7 @@ import { useAuth } from './hooks/useAuth';
 import { Toaster } from 'react-hot-toast';
 import { Layout } from './components/layout/Layout';
 import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
 
 const PrivateRoute = () => {
   const { usuario, loading } = useAuth();
@@ -21,7 +22,7 @@ function App() {
           <Route element={<PrivateRoute />}>
             <Route element={<Layout />}>
               <Route path="/" element={<Navigate to="/dashboard" />} />
-              <Route path="/dashboard" element={<div>Dashboard (TBD)</div>} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/choferes" element={<div>Choferes (TBD)</div>} />
               <Route path="/usuarios" element={<div>Usuarios (TBD)</div>} />
               <Route path="/solicitudes" element={<div>Solicitudes (TBD)</div>} />
