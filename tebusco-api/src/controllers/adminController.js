@@ -173,52 +173,85 @@ export const aprobarChofer = async (req, res, next) => {
     client.release()
   }
 }
-
-export const rechazarChofer = async (req, res, next) => {
-  const client = await getClient()
+export const getUsuarios = async (req, res, next) => {
   try {
-    const { id } = req.params
-    const { motivo } = req.body
-    await client.query('BEGIN')
+    const { tipo, activo, search, page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
+    const safeLimit = Math.min(limit, 50);
 
-    const { rows: choferRows } = await client.query(
-      'SELECT c.*, u.fcm_token, u.id as user_id FROM choferes c JOIN usuarios u ON u.id = c.usuario_id WHERE c.id = $1',
-      [id]
-    )
+    let whereClauses = ["u.tipo != 'admin'"];
+    let params = [];
 
-    if (choferRows.length === 0) {
-      await client.query('ROLLBACK')
-      return res.status(404).json({ ok: false, message: 'Chofer no encontrado' })
+    if (tipo) {
+      whereClauses.push(`u.tipo = $${params.length + 1}`);
+      params.push(tipo);
+    }
+    if (activo !== undefined) {
+      whereClauses.push(`u.activo = $${params.length + 1}`);
+      params.push(activo === '1' || activo === 'true');
+    }
+    if (search) {
+      whereClauses.push(`(u.nombre ILIKE $${params.length + 1} OR u.username ILIKE $${params.length + 1} OR u.email ILIKE $${params.length + 1} OR u.telefono ILIKE $${params.length + 1})`);
+      params.push(`%${search}%`);
     }
 
-    const chofer = choferRows[0]
+    const whereSql = `WHERE ${whereClauses.join(' AND ')}`;
 
-    await client.query(
-      'UPDATE choferes SET estado = $1, aprobado_por = NULL, aprobado_en = NULL WHERE id = $2',
-      ['inactivo', id]
-    )
+    const sql = `
+      SELECT u.id, u.nombre, u.username, u.telefono, u.email, u.tipo, 
+             u.foto_url, u.activo, u.verificado, u.fecha_registro,
+             p.nombre as provincia, m.nombre as municipio
+      FROM usuarios u
+      LEFT JOIN municipios m ON m.id = u.municipio_id
+      LEFT JOIN provincias p ON p.id = m.provincia_id
+      ${whereSql}
+      ORDER BY u.fecha_registro DESC
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+    `;
 
-    await client.query('UPDATE usuarios SET verificado = false WHERE id = $1', [chofer.user_id])
+    const { rows: data } = await query(sql, [...params, safeLimit, offset]);
+    const { rows: countRows } = await query(`SELECT COUNT(*) FROM usuarios u ${whereSql}`, params);
 
-    await client.query('COMMIT')
+    return success(res, {
+      data,
+      total: parseInt(countRows[0].count),
+      page: parseInt(page),
+      limit: safeLimit
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
-    const cuerpo = motivo 
-      ? `Tu cuenta de chofer no fue aprobada. Motivo: ${motivo}`
-      : 'Tu cuenta de chofer no fue aprobada. Contacta al soporte para más información.'
+export const toggleUsuarioActivo = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const { rows: userRows } = await query('SELECT id, tipo, activo, fcm_token FROM usuarios WHERE id = $1', [id]);
+    if (userRows.length === 0) return res.status(404).json({ ok: false, message: 'Usuario no encontrado' });
+
+    const user = userRows[0];
+    if (user.tipo === 'admin') return res.status(403).json({ ok: false, message: 'No se puede desactivar a un administrador' });
+
+    const nuevoEstado = !user.activo;
+    await query('UPDATE usuarios SET activo = $1 WHERE id = $2', [nuevoEstado, id]);
+
+    // Notificación
+    const titulo = nuevoEstado ? '✅ Cuenta reactivada' : '⚠️ Cuenta suspendida';
+    const cuerpo = nuevoEstado 
+      ? 'Tu cuenta ha sido reactivada. Ya puedes usar Te Busco con normalidad.'
+      : 'Tu cuenta ha sido suspendida temporalmente. Contacta al soporte.';
 
     sendNotification({
-      usuario_id: chofer.user_id,
+      usuario_id: id,
       tipo: 'sistema_alerta',
-      titulo: '❌ Cuenta no aprobada',
+      titulo,
       cuerpo,
-      fcm_token: chofer.fcm_token
-    }).catch(console.error)
+      fcm_token: user.fcm_token
+    }).catch(console.error);
 
-    return success(res, null, 'Chofer rechazado')
+    return success(res, { activo: nuevoEstado }, `Usuario ${nuevoEstado ? 'activado' : 'desactivado'}`);
   } catch (err) {
-    await client.query('ROLLBACK')
-    next(err)
-  } finally {
-    client.release()
+    next(err);
   }
-}
+};
