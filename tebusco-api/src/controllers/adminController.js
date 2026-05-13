@@ -29,3 +29,97 @@ export const getStats = async (req, res, next) => {
     next(err)
   }
 }
+
+export const getChoferes = async (req, res, next) => {
+  try {
+    const { estado, pendiente, page = 1, limit = 20 } = req.query
+    const offset = (page - 1) * limit
+    const safeLimit = Math.min(limit, 50)
+
+    let whereClauses = []
+    let params = []
+
+    if (estado) {
+      whereClauses.push(`c.estado = $${params.length + 1}`)
+      params.push(estado)
+    }
+    if (pendiente === '1' || pendiente === 'true') {
+      whereClauses.push(`c.aprobado_en IS NULL`)
+    }
+
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
+
+    const sql = `
+      SELECT c.id, c.estado, c.calificacion_promedio, c.total_viajes,
+             c.opera_interprovincial, c.licencia_numero, c.aprobado_en,
+             u.id as usuario_id, u.nombre, u.username, u.telefono, u.email,
+             u.foto_url, u.activo, u.verificado, u.fecha_registro, u.fcm_token,
+             p.nombre as provincia, m.nombre as municipio
+      FROM choferes c
+      JOIN usuarios u ON u.id = c.usuario_id
+      LEFT JOIN municipios m ON m.id = c.municipio_base_id
+      LEFT JOIN provincias p ON p.id = m.provincia_id
+      ${whereSql}
+      ORDER BY u.fecha_registro DESC
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+    `
+
+    const { rows: data } = await query(sql, [...params, safeLimit, offset])
+    const { rows: countRows } = await query(`SELECT COUNT(*) FROM choferes c ${whereSql}`, params)
+    
+    return success(res, {
+      data,
+      total: parseInt(countRows[0].count),
+      page: parseInt(page),
+      limit: safeLimit
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export const getChoferById = async (req, res, next) => {
+  try {
+    const { id } = req.params
+
+    const { rows: choferRows } = await query(`
+      SELECT c.*, u.nombre, u.username, u.telefono, u.email, u.foto_url, 
+             u.activo, u.verificado, u.fecha_registro, u.fcm_token,
+             p.nombre as provincia, m.nombre as municipio
+      FROM choferes c
+      JOIN usuarios u ON u.id = c.usuario_id
+      LEFT JOIN municipios m ON m.id = c.municipio_base_id
+      LEFT JOIN provincias p ON p.id = m.provincia_id
+      WHERE c.id = $1
+    `, [id])
+
+    if (choferRows.length === 0) return res.status(404).json({ ok: false, message: 'Chofer no encontrado' })
+    const chofer = choferRows[0]
+
+    const [vehiculos, valoraciones, solicitudes] = await Promise.all([
+      query('SELECT * FROM vehiculos WHERE chofer_id = $1', [id]),
+      query(`
+        SELECT v.*, u.nombre as pasajero_nombre
+        FROM valoraciones v
+        JOIN usuarios u ON u.id = v.pasajero_id
+        WHERE v.chofer_id = $1
+        ORDER BY v.creada_en DESC LIMIT 5
+      `, [id]),
+      query(`
+        SELECT * FROM solicitudes 
+        WHERE chofer_seleccionado_id = (SELECT usuario_id FROM choferes WHERE id = $1)
+        AND estado = 'completada'
+        ORDER BY creada_en DESC LIMIT 10
+      `, [id])
+    ])
+
+    return success(res, {
+      ...chofer,
+      vehiculos: vehiculos.rows,
+      valoraciones: valoraciones.rows,
+      solicitudes_recientes: solicitudes.rows
+    })
+  } catch (err) {
+    next(err)
+  }
+}

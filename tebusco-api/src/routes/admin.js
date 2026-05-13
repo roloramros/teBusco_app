@@ -10,4 +10,8 @@ router.use(authenticate, authorize('admin'))
 // Estadísticas para el dashboard
 router.get('/stats', adminController.getStats)
 
+// Gestión de Choferes
+router.get('/choferes', adminController.getChoferes)
+router.get('/choferes/:id', adminController.getChoferById)
+
 export default router
