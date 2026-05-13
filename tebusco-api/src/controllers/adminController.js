@@ -1,5 +1,6 @@
-import { query } from '../config/database.js'
+import { query, getClient } from '../config/database.js'
 import { success } from '../utils/response.js'
+import { sendNotification } from '../services/notificationService.js'
 
 export const getStats = async (req, res, next) => {
   try {
@@ -121,5 +122,103 @@ export const getChoferById = async (req, res, next) => {
     })
   } catch (err) {
     next(err)
+  }
+}
+
+export const aprobarChofer = async (req, res, next) => {
+  const client = await getClient()
+  try {
+    const { id } = req.params
+    await client.query('BEGIN')
+
+    const { rows: choferRows } = await client.query(
+      'SELECT c.*, u.fcm_token, u.id as user_id FROM choferes c JOIN usuarios u ON u.id = c.usuario_id WHERE c.id = $1',
+      [id]
+    )
+
+    if (choferRows.length === 0) {
+      await client.query('ROLLBACK')
+      return res.status(404).json({ ok: false, message: 'Chofer no encontrado' })
+    }
+
+    const chofer = choferRows[0]
+    if (chofer.estado !== 'inactivo') {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ ok: false, message: 'El chofer ya ha sido procesado o no está inactivo' })
+    }
+
+    await client.query(
+      'UPDATE choferes SET estado = $1, aprobado_por = $2, aprobado_en = NOW() WHERE id = $3',
+      ['disponible', req.usuario.id, id]
+    )
+
+    await client.query('UPDATE usuarios SET verificado = true WHERE id = $1', [chofer.user_id])
+
+    await client.query('COMMIT')
+
+    // Notificación fuera de transacción
+    sendNotification({
+      usuario_id: chofer.user_id,
+      tipo: 'sistema_alerta',
+      titulo: '✅ ¡Cuenta aprobada!',
+      cuerpo: '¡Buenas noticias! Tu cuenta de chofer ha sido aprobada. Ya puedes recibir solicitudes de viaje.',
+      fcm_token: chofer.fcm_token
+    }).catch(console.error)
+
+    return success(res, null, 'Chofer aprobado con éxito')
+  } catch (err) {
+    await client.query('ROLLBACK')
+    next(err)
+  } finally {
+    client.release()
+  }
+}
+
+export const rechazarChofer = async (req, res, next) => {
+  const client = await getClient()
+  try {
+    const { id } = req.params
+    const { motivo } = req.body
+    await client.query('BEGIN')
+
+    const { rows: choferRows } = await client.query(
+      'SELECT c.*, u.fcm_token, u.id as user_id FROM choferes c JOIN usuarios u ON u.id = c.usuario_id WHERE c.id = $1',
+      [id]
+    )
+
+    if (choferRows.length === 0) {
+      await client.query('ROLLBACK')
+      return res.status(404).json({ ok: false, message: 'Chofer no encontrado' })
+    }
+
+    const chofer = choferRows[0]
+
+    await client.query(
+      'UPDATE choferes SET estado = $1, aprobado_por = NULL, aprobado_en = NULL WHERE id = $2',
+      ['inactivo', id]
+    )
+
+    await client.query('UPDATE usuarios SET verificado = false WHERE id = $1', [chofer.user_id])
+
+    await client.query('COMMIT')
+
+    const cuerpo = motivo 
+      ? `Tu cuenta de chofer no fue aprobada. Motivo: ${motivo}`
+      : 'Tu cuenta de chofer no fue aprobada. Contacta al soporte para más información.'
+
+    sendNotification({
+      usuario_id: chofer.user_id,
+      tipo: 'sistema_alerta',
+      titulo: '❌ Cuenta no aprobada',
+      cuerpo,
+      fcm_token: chofer.fcm_token
+    }).catch(console.error)
+
+    return success(res, null, 'Chofer rechazado')
+  } catch (err) {
+    await client.query('ROLLBACK')
+    next(err)
+  } finally {
+    client.release()
   }
 }
