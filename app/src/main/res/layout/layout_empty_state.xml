@@ -14,6 +14,7 @@
         android:layout_width="120dp"
         android:layout_height="120dp"
         android:layout_marginBottom="24dp"
+        android:importantForAccessibility="no"
         android:src="@android:drawable/ic_menu_search"
         app:tint="@color/text_secondary" />
 
@@ -22,7 +23,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="8dp"
-        android:text="Título"
+        android:text="@string/empty_radar_title"
         android:textAlignment="center"
         android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
         android:textStyle="bold" />
@@ -32,7 +33,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="32dp"
-        android:text="Descripción detallada del estado vacío."
+        android:text="@string/empty_radar_desc"
         android:textAlignment="center"
         android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
         android:textColor="@color/text_secondary" />
@@ -42,7 +43,7 @@
         style="@style/Widget.Material3.Button.OutlinedButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Acción"
+        android:text="@string/empty_radar_action"
         app:cornerRadius="12dp" />
 
 </LinearLayout>

@@ -39,4 +39,13 @@
     <string name="dialog_delete_all_msg">¿Estás seguro de que deseas eliminar todas las notificaciones? Esta acción no se puede deshacer.</string>
     <string name="dialog_delete_all_positive">ELIMINAR TODO</string>
     <string name="msg_notifications_cleared">Historial limpiado</string>
+
+    <!-- Estados Vacíos -->
+    <string name="empty_radar_title">Radar despejado</string>
+    <string name="empty_radar_desc">No hay solicitudes de viaje en tu zona en este momento.</string>
+    <string name="empty_radar_action">Actualizar</string>
+    
+    <string name="empty_history_title">Sin viajes aún</string>
+    <string name="empty_history_desc">¿A dónde quieres ir? Empieza a viajar con nosotros hoy.</string>
+    <string name="empty_history_action">Solicitar Viaje</string>
 </resources>
