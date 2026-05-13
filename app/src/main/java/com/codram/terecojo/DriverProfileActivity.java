@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import com.codram.terecojo.data.model.RideRequest;
+import com.codram.terecojo.data.model.AuthResponse;
 import com.codram.terecojo.databinding.ActivityDriverProfileBinding;
 import com.codram.terecojo.ui.adapter.RideRequestAdapter;
 import com.codram.terecojo.utils.SessionManager;
@@ -73,13 +74,20 @@ public class DriverProfileActivity extends BaseActivity implements RideRequestAd
     }
 
     private void setupRequestsList() {
-        adapter = new RideRequestAdapter(requests, this);
+        AuthResponse.User user = SessionManager.getInstance(this).getUser();
+        boolean verified = user != null && user.isVerificado();
+        adapter = new RideRequestAdapter(requests, verified, this);
         profileBinding.rvRequests.setLayoutManager(new LinearLayoutManager(this));
         profileBinding.rvRequests.setAdapter(adapter);
     }
 
     @Override
     public void onAccept(RideRequest request) {
+        AuthResponse.User user = SessionManager.getInstance(this).getUser();
+        if (user != null && !user.isVerificado()) {
+            Toast.makeText(this, "Tu cuenta está pendiente de verificación", Toast.LENGTH_SHORT).show();
+            return;
+        }
         showMakeOfferDialog(request);
     }
 
