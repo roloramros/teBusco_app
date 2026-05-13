@@ -13,6 +13,7 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 import com.codram.terecojo.data.model.ApiResponse;
+import com.codram.terecojo.data.model.AuthResponse;
 import com.codram.terecojo.data.model.RideRequest;
 import com.codram.terecojo.data.remote.RetrofitClient;
 import com.codram.terecojo.ui.viewmodel.DriverViewModel;
@@ -127,7 +128,9 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
     }
 
     private void setupRecyclerView() {
-        adapter = new RideRequestAdapter(radarRequests, this);
+        AuthResponse.User user = SessionManager.getInstance(this).getUser();
+        boolean verified = user != null && user.isVerificado();
+        adapter = new RideRequestAdapter(radarRequests, verified, this);
     }
 
     @Override
@@ -204,6 +207,11 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
 
     @Override
     public void onAccept(RideRequest request) {
+        AuthResponse.User user = SessionManager.getInstance(this).getUser();
+        if (user != null && !user.isVerificado()) {
+            Toast.makeText(this, "Tu cuenta está pendiente de verificación", Toast.LENGTH_SHORT).show();
+            return;
+        }
         showMakeOfferDialog(request);
     }
 
