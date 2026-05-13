@@ -1,5 +1,5 @@
 import { query, getClient } from '../config/database.js'
-import { success } from '../utils/response.js'
+import { success, badRequest } from '../utils/response.js'
 import { sendNotification } from '../services/notificationService.js'
 
 export const getStats = async (req, res, next) => {
@@ -173,29 +173,79 @@ export const aprobarChofer = async (req, res, next) => {
     client.release()
   }
 }
+
+export const rechazarChofer = async (req, res, next) => {
+  const client = await getClient()
+  try {
+    const { id } = req.params
+    const { motivo } = req.body
+    await client.query('BEGIN')
+
+    const { rows: choferRows } = await client.query(
+      'SELECT c.*, u.fcm_token, u.id as user_id FROM choferes c JOIN usuarios u ON u.id = c.usuario_id WHERE c.id = $1',
+      [id]
+    )
+
+    if (choferRows.length === 0) {
+      await client.query('ROLLBACK')
+      return res.status(404).json({ ok: false, message: 'Chofer no encontrado' })
+    }
+
+    const chofer = choferRows[0]
+
+    await client.query(
+      'UPDATE choferes SET estado = $1, aprobado_por = NULL, aprobado_en = NULL WHERE id = $2',
+      ['inactivo', id]
+    )
+
+    await client.query('UPDATE usuarios SET verificado = false WHERE id = $1', [chofer.user_id])
+
+    await client.query('COMMIT')
+
+    const cuerpo = motivo 
+      ? `Tu cuenta de chofer no fue aprobada. Motivo: ${motivo}`
+      : 'Tu cuenta de chofer no fue aprobada. Contacta al soporte para más información.'
+
+    sendNotification({
+      usuario_id: chofer.user_id,
+      tipo: 'sistema_alerta',
+      titulo: '❌ Cuenta no aprobada',
+      cuerpo,
+      fcm_token: chofer.fcm_token
+    }).catch(console.error)
+
+    return success(res, null, 'Chofer rechazado')
+  } catch (err) {
+    await client.query('ROLLBACK')
+    next(err)
+  } finally {
+    client.release()
+  }
+}
+
 export const getUsuarios = async (req, res, next) => {
   try {
-    const { tipo, activo, search, page = 1, limit = 20 } = req.query;
-    const offset = (page - 1) * limit;
-    const safeLimit = Math.min(limit, 50);
+    const { tipo, activo, search, page = 1, limit = 20 } = req.query
+    const offset = (page - 1) * limit
+    const safeLimit = Math.min(limit, 50)
 
-    let whereClauses = ["u.tipo != 'admin'"];
-    let params = [];
+    let whereClauses = ["u.tipo != 'admin'"]
+    let params = []
 
     if (tipo) {
-      whereClauses.push(`u.tipo = $${params.length + 1}`);
-      params.push(tipo);
+      whereClauses.push(`u.tipo = $${params.length + 1}`)
+      params.push(tipo)
     }
     if (activo !== undefined) {
-      whereClauses.push(`u.activo = $${params.length + 1}`);
-      params.push(activo === '1' || activo === 'true');
+      whereClauses.push(`u.activo = $${params.length + 1}`)
+      params.push(activo === '1' || activo === 'true')
     }
     if (search) {
-      whereClauses.push(`(u.nombre ILIKE $${params.length + 1} OR u.username ILIKE $${params.length + 1} OR u.email ILIKE $${params.length + 1} OR u.telefono ILIKE $${params.length + 1})`);
-      params.push(`%${search}%`);
+      whereClauses.push(`(u.nombre ILIKE $${params.length + 1} OR u.username ILIKE $${params.length + 1} OR u.email ILIKE $${params.length + 1} OR u.telefono ILIKE $${params.length + 1})`)
+      params.push(`%${search}%`)
     }
 
-    const whereSql = `WHERE ${whereClauses.join(' AND ')}`;
+    const whereSql = `WHERE ${whereClauses.join(' AND ')}`
 
     const sql = `
       SELECT u.id, u.nombre, u.username, u.telefono, u.email, u.tipo, 
@@ -207,40 +257,40 @@ export const getUsuarios = async (req, res, next) => {
       ${whereSql}
       ORDER BY u.fecha_registro DESC
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
-    `;
+    `
 
-    const { rows: data } = await query(sql, [...params, safeLimit, offset]);
-    const { rows: countRows } = await query(`SELECT COUNT(*) FROM usuarios u ${whereSql}`, params);
+    const { rows: data } = await query(sql, [...params, safeLimit, offset])
+    const { rows: countRows } = await query(`SELECT COUNT(*) FROM usuarios u ${whereSql}`, params)
 
     return success(res, {
       data,
       total: parseInt(countRows[0].count),
       page: parseInt(page),
       limit: safeLimit
-    });
+    })
   } catch (err) {
-    next(err);
+    next(err)
   }
-};
+}
 
 export const toggleUsuarioActivo = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params
 
-    const { rows: userRows } = await query('SELECT id, tipo, activo, fcm_token FROM usuarios WHERE id = $1', [id]);
-    if (userRows.length === 0) return res.status(404).json({ ok: false, message: 'Usuario no encontrado' });
+    const { rows: userRows } = await query('SELECT id, tipo, activo, fcm_token FROM usuarios WHERE id = $1', [id])
+    if (userRows.length === 0) return res.status(404).json({ ok: false, message: 'Usuario no encontrado' })
 
-    const user = userRows[0];
-    if (user.tipo === 'admin') return res.status(403).json({ ok: false, message: 'No se puede desactivar a un administrador' });
+    const user = userRows[0]
+    if (user.tipo === 'admin') return res.status(403).json({ ok: false, message: 'No se puede desactivar a un administrador' })
 
-    const nuevoEstado = !user.activo;
-    await query('UPDATE usuarios SET activo = $1 WHERE id = $2', [nuevoEstado, id]);
+    const nuevoEstado = !user.activo
+    await query('UPDATE usuarios SET activo = $1 WHERE id = $2', [nuevoEstado, id])
 
     // Notificación
-    const titulo = nuevoEstado ? '✅ Cuenta reactivada' : '⚠️ Cuenta suspendida';
+    const titulo = nuevoEstado ? '✅ Cuenta reactivada' : '⚠️ Cuenta suspendida'
     const cuerpo = nuevoEstado 
       ? 'Tu cuenta ha sido reactivada. Ya puedes usar Te Busco con normalidad.'
-      : 'Tu cuenta ha sido suspendida temporalmente. Contacta al soporte.';
+      : 'Tu cuenta ha sido suspendida temporalmente. Contacta al soporte.'
 
     sendNotification({
       usuario_id: id,
@@ -248,7 +298,7 @@ export const toggleUsuarioActivo = async (req, res, next) => {
       titulo,
       cuerpo,
       fcm_token: user.fcm_token
-    }).catch(console.error);
+    }).catch(console.error)
 
     return success(res, { activo: nuevoEstado }, `Usuario ${nuevoEstado ? 'activado' : 'desactivado'}`)
   } catch (err) {
@@ -290,6 +340,43 @@ export const getSolicitudes = async (req, res, next) => {
       page: parseInt(page),
       limit: safeLimit
     })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export const broadcastNotification = async (req, res, next) => {
+  try {
+    const { titulo, cuerpo, tipo_usuario } = req.body
+
+    if (!titulo || !cuerpo) return badRequest(res, 'Título y cuerpo son requeridos')
+
+    let whereClause = "tipo != 'admin' AND fcm_token IS NOT NULL"
+    let params = []
+
+    if (tipo_usuario) {
+      whereClause += " AND tipo = $1"
+      params.push(tipo_usuario)
+    }
+
+    const { rows: usuarios } = await query(`SELECT id, fcm_token FROM usuarios WHERE ${whereClause}`, params)
+
+    const notifications = usuarios.map(u => 
+      sendNotification({
+        usuario_id: u.id,
+        tipo: 'sistema_alerta',
+        titulo,
+        cuerpo,
+        fcm_token: u.fcm_token
+      })
+    )
+
+    const results = await Promise.allSettled(notifications)
+    
+    const enviadas = results.filter(r => r.status === 'fulfilled' && r.value !== null).length
+    const fallidas = usuarios.length - enviadas
+
+    return success(res, { enviadas, fallidas }, 'Broadcast completado')
   } catch (err) {
     next(err)
   }

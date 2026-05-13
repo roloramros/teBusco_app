@@ -23,5 +23,8 @@ router.patch('/usuarios/:id/toggle-activo', adminController.toggleUsuarioActivo)
 // Monitoreo de Solicitudes
 router.get('/solicitudes', adminController.getSolicitudes)
 
+// Notificaciones
+router.post('/notificaciones/broadcast', adminController.broadcastNotification)
+
 export default router
 
