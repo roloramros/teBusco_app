@@ -1,5 +1,5 @@
 import express from 'express'
-import { authenticate } from '../middleware/auth.js'
+import { authenticate, requireVerificado } from '../middleware/auth.js'
 import * as solicitudController from '../controllers/solicitudController.js'
 
 const router = express.Router()
@@ -15,7 +15,7 @@ router.post('/', solicitudController.createSolicitud)
 // --- Nuevas rutas para el sistema de ofertas ---
 
 // El chofer responde a una solicitud
-router.post('/:solicitud_id/responder', solicitudController.responderSolicitud)
+router.post('/:solicitud_id/responder', requireVerificado, solicitudController.responderSolicitud)
 
 // El pasajero ve las ofertas de su solicitud
 router.get('/:solicitud_id/ofertas', solicitudController.getOfertasBySolicitud)
