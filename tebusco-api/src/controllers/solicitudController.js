@@ -542,3 +542,97 @@ export const cancelarSolicitud = async (req, res, next) => {
     next(err)
   }
 }
+
+/**
+ * El pasajero finaliza el viaje y valora al chofer
+ */
+export const finalizarViaje = async (req, res, next) => {
+  const client = await getClient()
+  try {
+    const { id } = req.params
+    const { id: pasajeroId } = req.usuario
+    const { estrellas, comentario } = req.body
+
+    // 1. Validar estrellas
+    if (estrellas === undefined || estrellas === null || !Number.isInteger(estrellas) || estrellas < 1 || estrellas > 5) {
+      return badRequest(res, 'Las estrellas son obligatorias y deben ser un número entero entre 1 y 5')
+    }
+
+    await client.query('BEGIN')
+
+    // 2. Verificar existencia, propiedad y estado
+    // JOIN con choferes y usuarios para obtener datos de notificación
+    const { rows: solRows } = await client.query(
+      `SELECT s.*, c.usuario_id as chofer_usuario_id, u.fcm_token as chofer_fcm_token
+       FROM solicitudes s
+       LEFT JOIN choferes c ON s.chofer_seleccionado_id = c.id
+       LEFT JOIN usuarios u ON c.usuario_id = u.id
+       WHERE s.id = $1`,
+      [id]
+    )
+
+    if (solRows.length === 0) {
+      await client.query('ROLLBACK')
+      return notFound(res, 'Solicitud no encontrada')
+    }
+
+    const solicitud = solRows[0]
+
+    if (solicitud.pasajero_id !== pasajeroId) {
+      await client.query('ROLLBACK')
+      return notFound(res, 'Solicitud no encontrada')
+    }
+
+    if (solicitud.estado !== 'en_proceso') {
+      await client.query('ROLLBACK')
+      return badRequest(res, `La solicitud no se puede finalizar porque está en estado: ${solicitud.estado}`)
+    }
+
+    // 3. Actualizar la solicitud
+    await client.query(
+      "UPDATE solicitudes SET estado = 'completada', completada_en = NOW() WHERE id = $1",
+      [id]
+    )
+
+    // 4. Insertar valoración
+    let valoracion;
+    try {
+      const { rows: valRows } = await client.query(
+        `INSERT INTO valoraciones (solicitud_id, pasajero_id, chofer_id, estrellas, comentario)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [id, pasajeroId, solicitud.chofer_seleccionado_id, estrellas, comentario || null]
+      )
+      valoracion = valRows[0]
+    } catch (err) {
+      if (err.code === '23505') {
+        await client.query('ROLLBACK')
+        return badRequest(res, 'Este viaje ya fue valorado')
+      }
+      throw err
+    }
+
+    await client.query('COMMIT')
+
+    // 5. Notificación push al chofer
+    if (solicitud.chofer_usuario_id) {
+      await sendNotification({
+        usuario_id: solicitud.chofer_usuario_id,
+        actor_id: pasajeroId,
+        tipo: 'viaje_completado',
+        titulo: '⭐ ¡Viaje completado!',
+        cuerpo: `El pasajero ha finalizado el viaje y te ha calificado con ${estrellas} estrellas.`,
+        datos_extra: { solicitud_id: id.toString(), estrellas: estrellas.toString() },
+        fcm_token: solicitud.chofer_fcm_token
+      })
+    }
+
+    return success(res, valoracion, '¡Viaje finalizado y valorado con éxito!')
+  } catch (err) {
+    await client.query('ROLLBACK')
+    next(err)
+  } finally {
+    client.release()
+  }
+}
+

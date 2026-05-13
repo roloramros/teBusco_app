@@ -30,4 +30,7 @@ router.post('/ofertas/:respuesta_id/rechazar', solicitudController.rechazarRespu
 // El pasajero cancela su solicitud
 router.post('/:id/cancelar', solicitudController.cancelarSolicitud)
 
+// El pasajero finaliza el viaje y valora al chofer
+router.post('/:id/finalizar', solicitudController.finalizarViaje)
+
 export default router
