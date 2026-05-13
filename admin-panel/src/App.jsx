@@ -2,10 +2,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import { Toaster } from 'react-hot-toast';
+import { Layout } from './components/layout/Layout';
+import Login from './pages/Login';
 
 const PrivateRoute = () => {
   const { usuario, loading } = useAuth();
-  if (loading) return <div className="p-10 text-center">Cargando...</div>;
+  if (loading) return <div className="flex h-screen items-center justify-center bg-gray-50 text-brand-500 font-bold">Cargando...</div>;
   return usuario ? <Outlet /> : <Navigate to="/login" />;
 };
 
@@ -15,11 +17,18 @@ function App() {
       <Router>
         <Toaster position="top-right" />
         <Routes>
-          <Route path="/login" element={<div className="p-10 text-center">Login Page (TBD)</div>} />
+          <Route path="/login" element={<Login />} />
           <Route element={<PrivateRoute />}>
-            <Route path="/" element={<Navigate to="/dashboard" />} />
-            <Route path="/dashboard" element={<div className="p-10 text-center">Dashboard (TBD)</div>} />
+            <Route element={<Layout />}>
+              <Route path="/" element={<Navigate to="/dashboard" />} />
+              <Route path="/dashboard" element={<div>Dashboard (TBD)</div>} />
+              <Route path="/choferes" element={<div>Choferes (TBD)</div>} />
+              <Route path="/usuarios" element={<div>Usuarios (TBD)</div>} />
+              <Route path="/solicitudes" element={<div>Solicitudes (TBD)</div>} />
+              <Route path="/notificaciones" element={<div>Notificaciones (TBD)</div>} />
+            </Route>
           </Route>
+          <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
       </Router>
     </AuthProvider>
