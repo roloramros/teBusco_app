@@ -250,8 +250,47 @@ export const toggleUsuarioActivo = async (req, res, next) => {
       fcm_token: user.fcm_token
     }).catch(console.error);
 
-    return success(res, { activo: nuevoEstado }, `Usuario ${nuevoEstado ? 'activado' : 'desactivado'}`);
+    return success(res, { activo: nuevoEstado }, `Usuario ${nuevoEstado ? 'activado' : 'desactivado'}`)
   } catch (err) {
-    next(err);
+    next(err)
   }
-};
+}
+
+export const getSolicitudes = async (req, res, next) => {
+  try {
+    const { estado, page = 1, limit = 20 } = req.query
+    const offset = (page - 1) * limit
+    const safeLimit = Math.min(limit, 50)
+
+    let whereClauses = []
+    let params = []
+
+    if (estado) {
+      whereClauses.push(`s.estado = $1`)
+      params.push(estado)
+    }
+
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
+
+    const sql = `
+      SELECT s.*, uc.nombre as chofer_nombre
+      FROM v_solicitudes s
+      LEFT JOIN usuarios uc ON uc.id = s.chofer_seleccionado_id
+      ${whereSql}
+      ORDER BY s.creada_en DESC
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+    `
+
+    const { rows: data } = await query(sql, [...params, safeLimit, offset])
+    const { rows: countRows } = await query(`SELECT COUNT(*) FROM solicitudes s ${whereSql}`, params)
+
+    return success(res, {
+      data,
+      total: parseInt(countRows[0].count),
+      page: parseInt(page),
+      limit: safeLimit
+    })
+  } catch (err) {
+    next(err)
+  }
+}
