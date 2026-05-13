@@ -142,7 +142,7 @@ export const registro = async (req, res) => {
     try {
       let cuerpoNotif = 'Tu cuenta ha sido creada con éxito. ¡Bienvenido!'
       if (tipo === 'pasajero') {
-        cuerpoNotif = 'Tu cuenta está lista. ¡Publica tu primera solicitud de viaje y encuentra tu chofer!'
+        cuerpoNotif = '¡Ya eres parte de Te Busco! 🙌 Estamos comenzando, pero cada semana sumamos mejoras y funciones nuevas. Creemos que la mejor app la construyen quienes la usan — así que tu experiencia y tu retroalimentación valen oro. ¡Comparte la app y ayúdanos a crecer!'
       } else if (tipo === 'chofer') {
         cuerpoNotif = '💪 Estamos comenzando y mejorando constantemente — cada actualización nace de escuchar a choferes como tú. Tu retroalimentación construye esta app. Compártela con otros choferes y pasajeros, y entre todos hacemos que Te Busco sea lo que Cuba necesita. 🚗'
       }

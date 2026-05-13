@@ -208,17 +208,19 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
             AuthResponse.User user = SessionManager.getInstance(this).getUser();
             if (user != null) {
                 Menu menu = navigationView.getMenu();
-                boolean isChofer = "chofer".equals(user.getTipo());
+                boolean isChofer = "chofer".equalsIgnoreCase(user.getTipo());
+                boolean isAdmin = "admin".equalsIgnoreCase(user.getTipo());
+                boolean isPasajero = "pasajero".equalsIgnoreCase(user.getTipo());
                 
                 // Items de Pasajero
                 MenuItem navRequest = menu.findItem(R.id.nav_request_service);
-                if (navRequest != null) navRequest.setVisible(!isChofer);
+                if (navRequest != null) navRequest.setVisible(isPasajero);
                 
                 MenuItem navTrips = menu.findItem(R.id.nav_trips);
-                if (navTrips != null) navTrips.setVisible(!isChofer);
+                if (navTrips != null) navTrips.setVisible(isPasajero);
                 
                 MenuItem navSites = menu.findItem(R.id.nav_frequent_sites);
-                if (navSites != null) navSites.setVisible(!isChofer);
+                if (navSites != null) navSites.setVisible(isPasajero);
                 
                 // Items de Chofer
                 MenuItem navRadar = menu.findItem(R.id.nav_driver_radar);
@@ -229,6 +231,10 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
                 
                 MenuItem navProfile = menu.findItem(R.id.nav_profile);
                 if (navProfile != null) navProfile.setVisible(isChofer);
+
+                // Items de Admin
+                MenuItem navAdmin = menu.findItem(R.id.nav_admin_panel);
+                if (navAdmin != null) navAdmin.setVisible(isAdmin);
 
                 // Configurar Nombre en footer
                 TextView tvName = navigationView.findViewById(R.id.tvUserFullName);

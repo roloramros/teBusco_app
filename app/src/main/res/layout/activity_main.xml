@@ -152,7 +152,7 @@
                                 android:id="@+id/etOrigin"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="Mi ubicación actual"
+                                android:text="Seleccionar punto de recogida"
                                 android:focusable="false"
                                 android:cursorVisible="false"
                                 android:textSize="14sp" />
@@ -190,7 +190,7 @@
                                 android:id="@+id/etDestination"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:hint="Busca tu destino"
+                                android:hint="Seleccionar punto de destino"
                                 android:focusable="false"
                                 android:cursorVisible="false"
                                 android:textSize="14sp" />

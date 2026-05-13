@@ -647,7 +647,7 @@ public class MainActivity extends BaseActivity {
     }
 
     private void clearFields() {
-        binding.etOrigin.setText("Mi ubicación actual");
+        binding.etOrigin.setText("Seleccionar punto de recogida");
         binding.etDestination.setText("");
         lastCalculatedDistance = 0;
         binding.containerStops.removeAllViews();

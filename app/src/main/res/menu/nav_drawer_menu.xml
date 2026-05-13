@@ -34,5 +34,11 @@
             android:id="@+id/nav_driver_oferts"
             android:icon="@android:drawable/ic_menu_search"
             android:title="Explorar Ofertas" />
+
+        <!-- Admin -->
+        <item
+            android:id="@+id/nav_admin_panel"
+            android:icon="@android:drawable/ic_dialog_info"
+            android:title="Panel Principal" />
     </group>
 </menu>
