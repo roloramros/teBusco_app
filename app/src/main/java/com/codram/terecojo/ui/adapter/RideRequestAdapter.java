@@ -13,17 +13,18 @@ import java.util.List;
 public class RideRequestAdapter extends RecyclerView.Adapter<RideRequestAdapter.ViewHolder> {
     private List<RideRequest> requests;
     private OnRideActionListener listener;
+    private boolean isUserVerified;
 
     public interface OnRideActionListener {
         void onAccept(RideRequest request);
         void onViewMap(RideRequest request);
     }
 
-    public RideRequestAdapter(List<RideRequest> requests, OnRideActionListener listener) {
+    public RideRequestAdapter(List<RideRequest> requests, boolean isUserVerified, OnRideActionListener listener) {   
         this.requests = requests;
+        this.isUserVerified = isUserVerified;
         this.listener = listener;
     }
-
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -112,6 +113,14 @@ public class RideRequestAdapter extends RecyclerView.Adapter<RideRequestAdapter.
                 ((android.widget.TextView) holder.btnAccept).setText("OFERTADO");
             } else if (holder.btnAccept instanceof android.widget.Button) {
                 ((android.widget.Button) holder.btnAccept).setText("OFERTADO");
+            }
+        } else if (!isUserVerified) {
+            holder.btnAccept.setEnabled(false);
+            holder.btnAccept.setAlpha(0.5f);
+            if (holder.btnAccept instanceof android.widget.TextView) {
+                ((android.widget.TextView) holder.btnAccept).setText("PENDIENTE");
+            } else if (holder.btnAccept instanceof android.widget.Button) {
+                ((android.widget.Button) holder.btnAccept).setText("PENDIENTE");
             }
         } else {
             holder.btnAccept.setEnabled(true);
