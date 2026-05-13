@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getChoferes, aprobarChofer } from '../api/admin';
+import { getChoferes, aprobarChofer, getProvincias } from '../api/admin';
 import { Table } from '../components/ui/Table';
 import { Badge } from '../components/ui/Badge';
 import { formatRating, formatDateShort } from '../utils/formatters';
@@ -7,20 +7,35 @@ import toast from 'react-hot-toast';
 
 const Choferes = () => {
   const [data, setData] = useState([]);
+  const [provincias, setProvincias] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState({ estado: '', pendiente: false });
+  const [filter, setFilter] = useState({ estado: '', pendiente: false, provincia_id: '' });
+
+  const loadInitialData = async () => {
+    try {
+      const provs = await getProvincias();
+      setProvincias(provs);
+    } catch (err) {
+      toast.error('Error al cargar provincias');
+    }
+  };
 
   const loadChoferes = () => {
     setLoading(true);
     const params = { 
       estado: filter.estado || undefined,
-      pendiente: filter.pendiente ? '1' : undefined
+      pendiente: filter.pendiente ? '1' : undefined,
+      provincia_id: filter.provincia_id || undefined
     };
     getChoferes(params)
-      .then(res => setData(res.data))
+      .then(setData)
       .catch(() => toast.error('Error al cargar choferes'))
       .finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    loadInitialData();
+  }, []);
 
   useEffect(() => {
     loadChoferes();
@@ -100,6 +115,16 @@ const Choferes = () => {
             <option value="disponible">Disponible</option>
             <option value="ocupado">Ocupado</option>
             <option value="inactivo">Inactivo</option>
+          </select>
+          <select 
+            className="px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-brand-500"
+            value={filter.provincia_id}
+            onChange={(e) => setFilter(prev => ({ ...prev, provincia_id: e.target.value }))}
+          >
+            <option value="">Todas las provincias</option>
+            {provincias.map(p => (
+              <option key={p.id} value={p.id}>{p.nombre}</option>
+            ))}
           </select>
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
             <input 

@@ -11,7 +11,7 @@ const Solicitudes = () => {
 
   useEffect(() => {
     getSolicitudes()
-      .then(res => setData(res.data))
+      .then(setData)
       .catch(() => toast.error('Error al cargar solicitudes'))
       .finally(() => setLoading(false));
   }, []);

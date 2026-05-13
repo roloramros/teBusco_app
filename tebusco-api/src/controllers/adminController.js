@@ -4,21 +4,61 @@ import { sendNotification } from '../services/notificationService.js'
 
 export const getStats = async (req, res, next) => {
   try {
+    const { provincia_id } = req.query
+    let params = []
+    let pClause = ''
+
+    if (provincia_id) {
+      params.push(provincia_id)
+      pClause = `AND p.id = $1`
+    }
+
     const queries = {
-      total_usuarios: "SELECT COUNT(*) FROM usuarios WHERE tipo != 'admin'",
-      total_pasajeros: "SELECT COUNT(*) FROM usuarios WHERE tipo = 'pasajero'",
-      total_choferes: "SELECT COUNT(*) FROM choferes",
-      choferes_pendientes: "SELECT COUNT(*) FROM choferes WHERE estado = 'inactivo' AND aprobado_en IS NULL",
-      choferes_activos: "SELECT COUNT(*) FROM choferes WHERE estado IN ('disponible', 'ocupado')",
-      viajes_completados: "SELECT COUNT(*) FROM solicitudes WHERE estado = 'completada'",
-      viajes_activos: "SELECT COUNT(*) FROM solicitudes WHERE estado IN ('activa', 'en_proceso')",
-      viajes_cancelados: "SELECT COUNT(*) FROM solicitudes WHERE estado = 'cancelada'",
-      valoracion_promedio: "SELECT ROUND(AVG(estrellas), 2) as avg FROM valoraciones"
+      total_usuarios: `
+        SELECT COUNT(*) FROM usuarios u 
+        LEFT JOIN municipios m ON m.id = u.municipio_id
+        LEFT JOIN provincias p ON p.id = m.provincia_id
+        WHERE u.tipo != 'admin' ${pClause}`,
+      total_pasajeros: `
+        SELECT COUNT(*) FROM usuarios u 
+        LEFT JOIN municipios m ON m.id = u.municipio_id
+        LEFT JOIN provincias p ON p.id = m.provincia_id
+        WHERE u.tipo = 'pasajero' ${pClause}`,
+      total_choferes: `
+        SELECT COUNT(*) FROM choferes c 
+        LEFT JOIN municipios m ON m.id = c.municipio_base_id
+        LEFT JOIN provincias p ON p.id = m.provincia_id
+        WHERE 1=1 ${pClause}`,
+      choferes_pendientes: `
+        SELECT COUNT(*) FROM choferes c 
+        LEFT JOIN municipios m ON m.id = c.municipio_base_id
+        LEFT JOIN provincias p ON p.id = m.provincia_id
+        WHERE c.estado = 'inactivo' AND c.aprobado_en IS NULL ${pClause}`,
+      choferes_activos: `
+        SELECT COUNT(*) FROM choferes c 
+        LEFT JOIN municipios m ON m.id = c.municipio_base_id
+        LEFT JOIN provincias p ON p.id = m.provincia_id
+        WHERE c.estado IN ('disponible', 'ocupado') ${pClause}`,
+      viajes_completados: `
+        SELECT COUNT(*) FROM solicitudes s 
+        WHERE s.estado = 'completada' ${provincia_id ? 'AND s.origen_provincia_id = $1' : ''}`,
+      viajes_activos: `
+        SELECT COUNT(*) FROM solicitudes s 
+        WHERE s.estado IN ('activa', 'en_proceso') ${provincia_id ? 'AND s.origen_provincia_id = $1' : ''}`,
+      viajes_cancelados: `
+        SELECT COUNT(*) FROM solicitudes s 
+        WHERE s.estado = 'cancelada' ${provincia_id ? 'AND s.origen_provincia_id = $1' : ''}`,
+      valoracion_promedio: `
+        SELECT ROUND(AVG(v.estrellas), 2) as avg FROM valoraciones v
+        JOIN choferes c ON c.id = v.chofer_id
+        LEFT JOIN municipios m ON m.id = c.municipio_base_id
+        LEFT JOIN provincias p ON p.id = m.provincia_id
+        WHERE 1=1 ${pClause}`
     }
 
     const results = await Promise.all(
       Object.entries(queries).map(async ([key, sql]) => {
-        const { rows } = await query(sql)
+        const { rows } = await query(sql, params)
         const val = rows[0].count || rows[0].avg || 0
         return [key, parseFloat(val)]
       })
@@ -33,7 +73,7 @@ export const getStats = async (req, res, next) => {
 
 export const getChoferes = async (req, res, next) => {
   try {
-    const { estado, pendiente, page = 1, limit = 20 } = req.query
+    const { estado, pendiente, provincia_id, page = 1, limit = 20 } = req.query
     const offset = (page - 1) * limit
     const safeLimit = Math.min(limit, 50)
 
@@ -46,6 +86,10 @@ export const getChoferes = async (req, res, next) => {
     }
     if (pendiente === '1' || pendiente === 'true') {
       whereClauses.push(`c.aprobado_en IS NULL`)
+    }
+    if (provincia_id) {
+      whereClauses.push(`p.id = $${params.length + 1}`)
+      params.push(provincia_id)
     }
 
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
@@ -66,7 +110,7 @@ export const getChoferes = async (req, res, next) => {
     `
 
     const { rows: data } = await query(sql, [...params, safeLimit, offset])
-    const { rows: countRows } = await query(`SELECT COUNT(*) FROM choferes c ${whereSql}`, params)
+    const { rows: countRows } = await query(`SELECT COUNT(*) FROM choferes c JOIN usuarios u ON u.id = c.usuario_id LEFT JOIN municipios m ON m.id = c.municipio_base_id LEFT JOIN provincias p ON p.id = m.provincia_id ${whereSql}`, params)
     
     return success(res, {
       data,
@@ -225,7 +269,7 @@ export const rechazarChofer = async (req, res, next) => {
 
 export const getUsuarios = async (req, res, next) => {
   try {
-    const { tipo, activo, search, page = 1, limit = 20 } = req.query
+    const { tipo, activo, search, provincia_id, page = 1, limit = 20 } = req.query
     const offset = (page - 1) * limit
     const safeLimit = Math.min(limit, 50)
 
@@ -236,13 +280,17 @@ export const getUsuarios = async (req, res, next) => {
       whereClauses.push(`u.tipo = $${params.length + 1}`)
       params.push(tipo)
     }
-    if (activo !== undefined) {
+    if (activo !== undefined && activo !== '') {
       whereClauses.push(`u.activo = $${params.length + 1}`)
       params.push(activo === '1' || activo === 'true')
     }
     if (search) {
       whereClauses.push(`(u.nombre ILIKE $${params.length + 1} OR u.username ILIKE $${params.length + 1} OR u.email ILIKE $${params.length + 1} OR u.telefono ILIKE $${params.length + 1})`)
       params.push(`%${search}%`)
+    }
+    if (provincia_id) {
+      whereClauses.push(`p.id = $${params.length + 1}`)
+      params.push(provincia_id)
     }
 
     const whereSql = `WHERE ${whereClauses.join(' AND ')}`
@@ -260,7 +308,7 @@ export const getUsuarios = async (req, res, next) => {
     `
 
     const { rows: data } = await query(sql, [...params, safeLimit, offset])
-    const { rows: countRows } = await query(`SELECT COUNT(*) FROM usuarios u ${whereSql}`, params)
+    const { rows: countRows } = await query(`SELECT COUNT(*) FROM usuarios u LEFT JOIN municipios m ON m.id = u.municipio_id LEFT JOIN provincias p ON p.id = m.provincia_id ${whereSql}`, params)
 
     return success(res, {
       data,
@@ -323,16 +371,17 @@ export const getSolicitudes = async (req, res, next) => {
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
 
     const sql = `
-      SELECT s.*, uc.nombre as chofer_nombre
-      FROM v_solicitudes s
+      SELECT v.*, uc.nombre as chofer_nombre
+      FROM v_solicitudes v
+      JOIN solicitudes s ON s.id = v.id
       LEFT JOIN usuarios uc ON uc.id = s.chofer_seleccionado_id
       ${whereSql}
-      ORDER BY s.creada_en DESC
+      ORDER BY v.creada_en DESC
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `
 
     const { rows: data } = await query(sql, [...params, safeLimit, offset])
-    const { rows: countRows } = await query(`SELECT COUNT(*) FROM solicitudes s ${whereSql}`, params)
+    const { rows: countRows } = await query(`SELECT COUNT(*) FROM solicitudes ${whereSql}`, params)
 
     return success(res, {
       data,

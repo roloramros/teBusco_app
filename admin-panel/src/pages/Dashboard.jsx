@@ -1,19 +1,28 @@
 import { useState, useEffect } from 'react';
-import { getStats } from '../api/admin';
+import { getStats, getProvincias } from '../api/admin';
 import { StatCard } from '../components/ui/StatCard';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import toast from 'react-hot-toast';
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
+  const [provincias, setProvincias] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedProvincia, setSelectedProvincia] = useState('');
 
   useEffect(() => {
-    getStats()
-      .then(setStats)
-      .catch(err => toast.error('Error al cargar estadísticas'))
-      .finally(() => setLoading(false));
+    getProvincias()
+      .then(setProvincias)
+      .catch(() => toast.error('Error al cargar provincias'));
   }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    getStats({ provincia_id: selectedProvincia || undefined })
+      .then(setStats)
+      .catch(() => toast.error('Error al cargar estadísticas'))
+      .finally(() => setLoading(false));
+  }, [selectedProvincia]);
 
   const chartData = [
     { name: 'Activos', value: stats?.viajes_activos || 0, color: '#3b82f6' },
@@ -23,6 +32,23 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+        <h2 className="text-lg font-bold text-gray-800">Panel de Control</h2>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500 font-medium">Filtrar por Provincia:</span>
+          <select 
+            className="px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+            value={selectedProvincia}
+            onChange={(e) => setSelectedProvincia(e.target.value)}
+          >
+            <option value="">Todas las provincias</option>
+            {provincias.map(p => (
+              <option key={p.id} value={p.id}>{p.nombre}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Usuarios Totales" value={stats?.total_usuarios} icon="👥" loading={loading} color="blue" />
         <StatCard title="Choferes" value={stats?.total_choferes} icon="🚗" loading={loading} color="purple" />

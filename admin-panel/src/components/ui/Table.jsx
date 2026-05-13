@@ -23,10 +23,10 @@ export const Table = ({ columns, data, loading, emptyMessage = 'No se encontraro
                   ))}
                 </tr>
               ))
-            ) : data.length === 0 ? (
+            ) : !Array.isArray(data) || data.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-6 py-10 text-center text-gray-500">
-                  {emptyMessage}
+                  {!data ? 'Cargando...' : emptyMessage}
                 </td>
               </tr>
             ) : (

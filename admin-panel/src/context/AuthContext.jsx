@@ -22,8 +22,8 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (username, password) => {
-    const { data } = await api.post('/api/auth/login', { username, password });
+  const login = async (identificador, password) => {
+    const { data } = await api.post('/api/auth/login', { identificador, password });
     if (data.data.usuario.tipo !== 'admin') {
       throw new Error('Acceso denegado. Solo administradores.');
     }

@@ -15,7 +15,7 @@ const Notificaciones = () => {
       const res = await broadcastNotification(form);
       toast.success(`Enviadas: ${res.enviadas}, Fallidas: ${res.fallidas}`);
       setForm({ titulo: '', cuerpo: '', tipo_usuario: '' });
-    } catch (err) {
+    } catch {
       toast.error('Error al enviar notificación');
     } finally {
       setLoading(false);

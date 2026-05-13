@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getUsuarios, toggleUsuarioActivo } from '../api/admin';
+import { getUsuarios, toggleUsuarioActivo, getProvincias } from '../api/admin';
 import { Table } from '../components/ui/Table';
 import { Badge } from '../components/ui/Badge';
 import { formatDateShort } from '../utils/formatters';
@@ -7,16 +7,34 @@ import toast from 'react-hot-toast';
 
 const Usuarios = () => {
   const [data, setData] = useState([]);
+  const [provincias, setProvincias] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState({ tipo: '', activo: '' });
+  const [filter, setFilter] = useState({ tipo: '', activo: '', provincia_id: '' });
+
+  const loadInitialData = async () => {
+    try {
+      const provs = await getProvincias();
+      setProvincias(provs);
+    } catch (err) {
+      toast.error('Error al cargar provincias');
+    }
+  };
 
   const loadUsuarios = () => {
     setLoading(true);
-    getUsuarios({ tipo: filter.tipo || undefined, activo: filter.activo || undefined })
-      .then(res => setData(res.data))
+    getUsuarios({ 
+      tipo: filter.tipo || undefined, 
+      activo: filter.activo || undefined,
+      provincia_id: filter.provincia_id || undefined
+    })
+      .then(setData)
       .catch(() => toast.error('Error al cargar usuarios'))
       .finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    loadInitialData();
+  }, []);
 
   useEffect(() => {
     loadUsuarios();
@@ -28,7 +46,7 @@ const Usuarios = () => {
       await toggleUsuarioActivo(user.id);
       toast.success('Usuario actualizado');
       loadUsuarios();
-    } catch (err) {
+    } catch {
       toast.error('Error al actualizar usuario');
     }
   };
@@ -86,6 +104,16 @@ const Usuarios = () => {
           <option value="">Todos los estados</option>
           <option value="1">Activos</option>
           <option value="0">Inactivos</option>
+        </select>
+        <select 
+          className="px-4 py-2 border border-gray-200 rounded-lg outline-none"
+          value={filter.provincia_id}
+          onChange={(e) => setFilter(prev => ({ ...prev, provincia_id: e.target.value }))}
+        >
+          <option value="">Todas las provincias</option>
+          {provincias.map(p => (
+            <option key={p.id} value={p.id}>{p.nombre}</option>
+          ))}
         </select>
       </div>
       <Table columns={columns} data={data} loading={loading} />

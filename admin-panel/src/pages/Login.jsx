@@ -5,7 +5,7 @@ import { Spinner } from '../components/ui/Spinner';
 import toast from 'react-hot-toast';
 
 const Login = () => {
-  const [username, setUsername] = useState('');
+  const [identificador, setIdentificador] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -15,7 +15,7 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(username, password);
+      await login(identificador, password);
       toast.success('Bienvenido al panel');
       navigate('/dashboard');
     } catch (err) {
@@ -36,13 +36,13 @@ const Login = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email o Teléfono</label>
             <input
               type="text"
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={identificador}
+              onChange={(e) => setIdentificador(e.target.value)}
             />
           </div>
           <div>
