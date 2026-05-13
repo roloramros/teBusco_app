@@ -6,6 +6,9 @@ import { Layout } from './components/layout/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Choferes from './pages/Choferes';
+import Usuarios from './pages/Usuarios';
+import Solicitudes from './pages/Solicitudes';
+import Notificaciones from './pages/Notificaciones';
 
 const PrivateRoute = () => {
   const { usuario, loading } = useAuth();
@@ -25,9 +28,9 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/choferes" element={<Choferes />} />
-              <Route path="/usuarios" element={<div>Usuarios (TBD)</div>} />
-              <Route path="/solicitudes" element={<div>Solicitudes (TBD)</div>} />
-              <Route path="/notificaciones" element={<div>Notificaciones (TBD)</div>} />
+              <Route path="/usuarios" element={<Usuarios />} />
+              <Route path="/solicitudes" element={<Solicitudes />} />
+              <Route path="/notificaciones" element={<Notificaciones />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" />} />
