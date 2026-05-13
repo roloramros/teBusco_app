@@ -1,5 +1,5 @@
 import { query, getClient } from '../config/database.js'
-import { success, badRequest } from '../utils/response.js'
+import { success, badRequest, notFound, forbidden } from '../utils/response.js'
 import { sendNotification } from '../services/notificationService.js'
 
 export const getStats = async (req, res, next) => {
@@ -94,7 +94,7 @@ export const getChoferById = async (req, res, next) => {
       WHERE c.id = $1
     `, [id])
 
-    if (choferRows.length === 0) return res.status(404).json({ ok: false, message: 'Chofer no encontrado' })
+    if (choferRows.length === 0) return notFound(res, 'Chofer no encontrado')
     const chofer = choferRows[0]
 
     const [vehiculos, valoraciones, solicitudes] = await Promise.all([
@@ -138,13 +138,13 @@ export const aprobarChofer = async (req, res, next) => {
 
     if (choferRows.length === 0) {
       await client.query('ROLLBACK')
-      return res.status(404).json({ ok: false, message: 'Chofer no encontrado' })
+      return notFound(res, 'Chofer no encontrado')
     }
 
     const chofer = choferRows[0]
     if (chofer.estado !== 'inactivo') {
       await client.query('ROLLBACK')
-      return res.status(400).json({ ok: false, message: 'El chofer ya ha sido procesado o no está inactivo' })
+      return badRequest(res, 'El chofer ya ha sido procesado o no está inactivo')
     }
 
     await client.query(
@@ -188,7 +188,7 @@ export const rechazarChofer = async (req, res, next) => {
 
     if (choferRows.length === 0) {
       await client.query('ROLLBACK')
-      return res.status(404).json({ ok: false, message: 'Chofer no encontrado' })
+      return notFound(res, 'Chofer no encontrado')
     }
 
     const chofer = choferRows[0]
@@ -278,10 +278,10 @@ export const toggleUsuarioActivo = async (req, res, next) => {
     const { id } = req.params
 
     const { rows: userRows } = await query('SELECT id, tipo, activo, fcm_token FROM usuarios WHERE id = $1', [id])
-    if (userRows.length === 0) return res.status(404).json({ ok: false, message: 'Usuario no encontrado' })
+    if (userRows.length === 0) return notFound(res, 'Usuario no encontrado')
 
     const user = userRows[0]
-    if (user.tipo === 'admin') return res.status(403).json({ ok: false, message: 'No se puede desactivar a un administrador' })
+    if (user.tipo === 'admin') return forbidden(res, 'No se puede desactivar a un administrador')
 
     const nuevoEstado = !user.activo
     await query('UPDATE usuarios SET activo = $1 WHERE id = $2', [nuevoEstado, id])
