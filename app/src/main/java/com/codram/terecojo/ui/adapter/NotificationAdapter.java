@@ -21,6 +21,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
     public interface OnNotificationClickListener {
         void onNotificationClick(Notification notification);
         void onNotificationLongClick(Notification notification);
+        void onCallClick(String phoneNumber);
     }
 
     public NotificationAdapter(List<Notification> notifications, OnNotificationClickListener listener) {
@@ -110,6 +111,18 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
             binding.tvIcon.setText(icon);
             binding.tvIcon.setBackgroundTintList(ColorStateList.valueOf(
                     ContextCompat.getColor(itemView.getContext(), colorRes)));
+
+            // Botón de llamada para ofertas aceptadas
+            if ("oferta_aceptada".equals(notification.getTipo()) && 
+                notification.getDatosExtra() != null && 
+                notification.getDatosExtra().containsKey("pasajero_telefono")) {
+                
+                String phone = String.valueOf(notification.getDatosExtra().get("pasajero_telefono"));
+                binding.btnCall.setVisibility(View.VISIBLE);
+                binding.btnCall.setOnClickListener(v -> listener.onCallClick(phone));
+            } else {
+                binding.btnCall.setVisibility(View.GONE);
+            }
 
             binding.getRoot().setOnClickListener(v -> listener.onNotificationClick(notification));
             binding.getRoot().setOnLongClickListener(v -> {

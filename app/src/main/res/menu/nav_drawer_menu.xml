@@ -15,6 +15,8 @@
             android:icon="@android:drawable/ic_menu_mylocation"
             android:title="Sitios Frecuentes" />
 
+
+
         <!-- Chofer -->
         <item
             android:id="@+id/nav_profile"
@@ -25,15 +27,28 @@
             android:icon="@android:drawable/ic_menu_compass"
             android:title="Radar de Solicitudes" />
         <item
+            android:id="@+id/nav_driver_trips"
+            android:icon="@android:drawable/ic_menu_agenda"
+            android:title="Mis Viajes" />
+        <item
             android:id="@+id/nav_my_vehicles"
             android:icon="@android:drawable/ic_menu_directions"
             android:title="Mis Vehículos" />
-            
+        <item
+            android:id="@+id/nav_driver_verification"
+            android:icon="@android:drawable/ic_menu_save"
+            android:title="Verificacion y Licencia" />
+
+
+
+
         <!-- General -->
         <item
             android:id="@+id/nav_driver_oferts"
             android:icon="@android:drawable/ic_menu_search"
             android:title="Explorar Ofertas" />
+
+
 
         <!-- Admin -->
         <item

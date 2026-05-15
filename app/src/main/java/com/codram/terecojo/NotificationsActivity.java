@@ -220,6 +220,15 @@ public class NotificationsActivity extends BaseActivity implements NotificationA
         });
     }
 
+    @Override
+    public void onCallClick(String phoneNumber) {
+        if (phoneNumber != null && !phoneNumber.isEmpty()) {
+            Intent intent = new Intent(Intent.ACTION_DIAL);
+            intent.setData(android.net.Uri.parse("tel:" + phoneNumber));
+            startActivity(intent);
+        }
+    }
+
     private void markAsRead(Notification notification) {
         RetrofitClient.getService(this).markNotificationAsRead(notification.getId()).enqueue(new Callback<ApiResponse<Void>>() {
             @Override

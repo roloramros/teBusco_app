@@ -45,6 +45,8 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
     private List<com.google.android.gms.maps.model.Marker> routeMarkers = new ArrayList<>();
     private List<com.google.android.gms.maps.model.Marker> radarMarkers = new ArrayList<>();
     private List<Vehicle> myVehicles = new ArrayList<>();
+    private boolean isViewingRoute = false;
+    private RideRequest pendingAutoRoute = null; // NUEVO
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,7 +71,28 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
         setupClearRouteButton();
         setupWindowInsets();
 
+        processAutoRouteIntent(getIntent()); // NUEVO
         viewModel.fetchMyVehicles();
+    }
+
+    private void processAutoRouteIntent(Intent intent) { // NUEVO
+        if (intent != null && intent.getBooleanExtra("AUTO_OPEN_ROUTE", false)) {
+            String json = intent.getStringExtra("AUTO_ROUTE_JSON");
+            if (json != null) {
+                pendingAutoRoute = new com.google.gson.Gson().fromJson(json, RideRequest.class);
+            }
+        }
+    }
+
+    private void triggerAutoRoute(RideRequest request) { // NUEVO
+        onViewMap(request);
+        for (com.google.android.gms.maps.model.Marker marker : radarMarkers) {
+            RideRequest tag = (RideRequest) marker.getTag();
+            if (tag != null && tag.getId().equals(request.getId())) {
+                marker.showInfoWindow();
+                break;
+            }
+        }
     }
 
     private void setupWindowInsets() {
@@ -115,6 +138,7 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
     }
 
     private void clearRouteMarkersAndPolylines() {
+        isViewingRoute = false;
         for (Polyline p : activePolylines) p.remove();
         activePolylines.clear();
         
@@ -140,9 +164,13 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
         mMap.setOnMarkerClickListener(marker -> {
             RideRequest req = (RideRequest) marker.getTag();
             if (req != null) {
+                // Dibujamos la ruta y ocultamos los demás
                 onViewMap(req);
+                
+                // IMPORTANTE: Después de dibujar la ruta, forzamos que se muestre el InfoWindow 
+                // del marcador que acabamos de tocar.
                 marker.showInfoWindow();
-                return true; // Consumimos el evento para manejarlo nosotros
+                return true; 
             }
             return false;
         });
@@ -153,6 +181,73 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
         });
 
         fetchRadarData();
+
+        // Verificar si venimos de "Ver Ruta" desde la otra actividad
+        checkIncomingRequest(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        checkIncomingRequest(intent);
+        processAutoRouteIntent(intent); // NUEVO
+    }
+
+    private void checkIncomingRequest(Intent intent) {
+        if (intent == null) return;
+        
+        if (intent.hasExtra("EXTRA_RIDE_REQUEST")) {
+            RideRequest request = (RideRequest) intent.getSerializableExtra("EXTRA_RIDE_REQUEST");
+            if (request != null) {
+                if (mMap != null) {
+                    processIncomingRoute(request);
+                } else {
+                    // Reintentar brevemente si el mapa aún no está listo
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        if (mMap != null) processIncomingRoute(request);
+                        else Toast.makeText(this, "Error: Mapa no listo para dibujar ruta", Toast.LENGTH_LONG).show();
+                    }, 1200);
+                }
+            } else {
+                Toast.makeText(this, "Error: Datos de ruta corruptos", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private void processIncomingRoute(RideRequest request) {
+        // 1. Dibujamos la ruta (esto oculta los demás marcadores y activa el botón X)
+        onViewMap(request);
+
+        // 2. Buscamos el marcador del radar para este viaje para mostrar su InfoWindow
+        com.google.android.gms.maps.model.Marker targetMarker = null;
+        for (com.google.android.gms.maps.model.Marker m : radarMarkers) {
+            RideRequest tag = (RideRequest) m.getTag();
+            if (tag != null && tag.getId().equals(request.getId())) {
+                targetMarker = m;
+                break;
+            }
+        }
+
+        // 3. Si no existe (porque el radar no ha cargado), creamos uno temporal para mostrar la info
+        if (targetMarker == null) {
+            LatLng pos = new LatLng(request.getOrigenLat(), request.getOrigenLng());
+            targetMarker = mMap.addMarker(new com.google.android.gms.maps.model.MarkerOptions()
+                    .position(pos)
+                    .title(request.getPasajeroNombre())
+                    .snippet(String.format(java.util.Locale.getDefault(), "%.2f Km ...ver más", request.getDistancia()))
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
+            if (targetMarker != null) {
+                targetMarker.setTag(request);
+                radarMarkers.add(targetMarker);
+            }
+        }
+
+        // 4. Forzamos mostrar el panel de información
+        if (targetMarker != null) {
+            targetMarker.setVisible(true);
+            targetMarker.showInfoWindow();
+        }
     }
 
     private void showRequestDetailsDialog(RideRequest req) {
@@ -197,6 +292,11 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
                     radarRequests.clear();
                     radarRequests.addAll(response.body().getData());
                     displayMarkers(radarRequests);
+
+                    if (pendingAutoRoute != null) { // NUEVO
+                        triggerAutoRoute(pendingAutoRoute);
+                        pendingAutoRoute = null;
+                    }
                 }
             }
 
@@ -276,18 +376,29 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
     @Override
     public void onViewMap(RideRequest request) {
         if (mMap == null) return;
+        
+        isViewingRoute = true;
         clearRouteMarkersAndPolylines();
+        isViewingRoute = true;
 
-        // Ocultar todos los marcadores del radar excepto el seleccionado
+        // Ocultar marcadores del radar (menos el que se seleccionó si se llamó desde el clic)
         for (com.google.android.gms.maps.model.Marker m : radarMarkers) {
             RideRequest tag = (RideRequest) m.getTag();
-            if (tag != null && !tag.getId().equals(request.getId())) {
+            if (tag != null && tag.getId().equals(request.getId())) {
+                m.setVisible(true); // Mantener visible el seleccionado
+            } else {
                 m.setVisible(false);
             }
         }
 
         LatLng origin = new LatLng(request.getOrigenLat(), request.getOrigenLng());
         LatLng dest = new LatLng(request.getDestinoLat(), request.getDestinoLng());
+
+        // Marcadores de la ruta (Origen/Destino/Paradas)
+        // Usamos azul para origen y rojo para destino
+        com.google.android.gms.maps.model.Marker originMarker = mMap.addMarker(new MarkerOptions()
+                .position(origin).title("Origen").icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
+        routeMarkers.add(originMarker);
 
         com.google.android.gms.maps.model.Marker destMarker = mMap.addMarker(new MarkerOptions()
                 .position(dest).title("Destino").icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
@@ -312,7 +423,12 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
 
         viewModel.fetchDirections(origin, dest, waypoints);
 
-        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 150));
+        try {
+            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 200));
+        } catch (Exception e) {
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(origin, 14f));
+        }
+        
         binding.fabClearRoute.setVisibility(View.VISIBLE);
     }
 
@@ -359,6 +475,7 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
                     .position(pos)
                     .title(req.getPasajeroNombre())
                     .snippet(snippet)
+                    .visible(!isViewingRoute) // Solo visible si no estamos viendo una ruta específica
                     .icon(BitmapDescriptorFactory.defaultMarker(color)));
             
             if (marker != null) {

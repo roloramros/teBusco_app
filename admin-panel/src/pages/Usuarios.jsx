@@ -1,15 +1,26 @@
 import { useState, useEffect } from 'react';
-import { getUsuarios, toggleUsuarioActivo, getProvincias } from '../api/admin';
+import { getUsuarios, toggleUsuarioActivo, getProvincias, deleteUsuario } from '../api/admin';
 import { Table } from '../components/ui/Table';
 import { Badge } from '../components/ui/Badge';
 import { formatDateShort } from '../utils/formatters';
 import toast from 'react-hot-toast';
 
 const Usuarios = () => {
-  const [data, setData] = useState([]);
-  const [provincias, setProvincias] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState({ tipo: '', activo: '', provincia_id: '' });
+ const [data, setData] = useState([]);
+ const [provincias, setProvincias] = useState([]);
+ const [loading, setLoading] = useState(true);
+ const [filter, setFilter] = useState({ tipo: '', activo: '', provincia_id: '' });
+
+ const handleDelete = async (user) => {
+  if (!confirm(`¿Estás seguro de que deseas eliminar a ${user.nombre}? Esta acción no se puede deshacer.`)) return;
+  try {
+   await deleteUsuario(user.id);
+   toast.success('Usuario eliminado correctamente');
+   loadUsuarios();
+  } catch {
+   toast.error('Error al eliminar usuario');
+  }
+ };
 
   const loadInitialData = async () => {
     try {
@@ -81,7 +92,20 @@ const Usuarios = () => {
         </button>
       )
     },
-    { key: 'fecha_registro', label: 'Registro', render: (item) => formatDateShort(item.fecha_registro) }
+    { key: 'fecha_registro', label: 'Registro', render: (item) => formatDateShort(item.fecha_registro) },
+{ key: 'ultimo_acceso', label: 'Último acceso', render: (item) => item.ultimo_acceso ? formatDateShort(item.ultimo_acceso) : 'Nunca' },
+{
+ key: 'acciones',
+ label: 'Acciones',
+ render: (item) => (
+   <button
+    onClick={() => handleDelete(item)}
+    className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+   >
+    Eliminar
+   </button>
+ )
+}
   ];
 
   return (

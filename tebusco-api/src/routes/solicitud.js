@@ -9,6 +9,8 @@ router.use(authenticate)
 
 router.get('/radar', solicitudController.getTodasSolicitudesActivas)
 router.get('/mis-solicitudes', solicitudController.getMisSolicitudes)
+router.get('/mis-viajes', solicitudController.getMisViajesChofer)
+router.post('/mis-viajes/:id/cancelar', requireVerificado, solicitudController.cancelarViajeChofer)
 router.get('/:id', solicitudController.getSolicitudById)
 router.post('/', solicitudController.createSolicitud)
 

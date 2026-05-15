@@ -19,6 +19,7 @@ router.post('/choferes/:id/rechazar', adminController.rechazarChofer)
 // Gestión de Usuarios
 router.get('/usuarios', adminController.getUsuarios)
 router.patch('/usuarios/:id/toggle-activo', adminController.toggleUsuarioActivo)
+router.delete('/usuarios/:id', adminController.deleteUsuario)
 
 // Monitoreo de Solicitudes
 router.get('/solicitudes', adminController.getSolicitudes)

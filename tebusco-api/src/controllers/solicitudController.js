@@ -136,7 +136,7 @@ export const createSolicitud = async (req, res, next) => {
  */
 export const getTodasSolicitudesActivas = async (req, res, next) => {
   try {
-    const { id: usuarioId } = req.usuario;
+    const { id: usuarioId, municipio_id } = req.usuario;
 
     // 1. Obtener el ID de chofer del usuario actual
     const { rows: choferRows } = await query(
@@ -145,15 +145,25 @@ export const getTodasSolicitudesActivas = async (req, res, next) => {
     )
     const choferId = choferRows.length > 0 ? choferRows[0].id : null;
 
-    const { rows } = await query(
-      `SELECT v.*, 
+    let sql = `
+      SELECT v.*, 
         CASE WHEN r.id IS NOT NULL THEN TRUE ELSE FALSE END as ha_respondido
-       FROM v_solicitudes v
-       LEFT JOIN respuestas_solicitud r ON r.solicitud_id = v.id AND r.chofer_id = $1 AND r.estado != 'rechazado'
-       WHERE v.estado = 'activa' 
-       ORDER BY v.creada_en DESC`,
-      [choferId]
-    )
+      FROM v_solicitudes v
+      JOIN solicitudes s ON s.id = v.id
+      LEFT JOIN respuestas_solicitud r ON r.solicitud_id = v.id AND r.chofer_id = $1 AND r.estado != 'rechazado'
+      WHERE v.estado = 'activa'
+    `;
+    let params = [choferId];
+
+    // Filtrar por municipio del chofer si lo tiene asignado
+    if (municipio_id) {
+      sql += ` AND s.origen_municipio_id = $${params.length + 1}`;
+      params.push(municipio_id);
+    }
+
+    sql += ` ORDER BY v.creada_en DESC`;
+
+    const { rows } = await query(sql, params)
     return success(res, rows)
   } catch (err) {
     next(err)
@@ -285,11 +295,13 @@ export const aceptarRespuesta = async (req, res, next) => {
 
     // 1. Obtener datos de la respuesta y verificar propiedad de la solicitud
     const { rows: respRows } = await client.query(
-      `SELECT r.*, s.pasajero_id, s.destino_descripcion, u.fcm_token, u.id as chofer_usuario_id
+      `SELECT r.*, s.pasajero_id, s.destino_descripcion, u.fcm_token, u.id as chofer_usuario_id,
+              up.telefono as pasajero_telefono
        FROM respuestas_solicitud r
        JOIN solicitudes s ON s.id = r.solicitud_id
        JOIN choferes c ON c.id = r.chofer_id
        JOIN usuarios u ON u.id = c.usuario_id
+       JOIN usuarios up ON up.id = s.pasajero_id
        WHERE r.id = $1`,
       [respuesta_id]
     )
@@ -346,8 +358,11 @@ export const aceptarRespuesta = async (req, res, next) => {
       actor_id: usuarioId,
       tipo: 'oferta_aceptada',
       titulo: '✅ ¡Oferta aceptada!',
-      cuerpo: `${pasajeroNombre} ha aceptado tu oferta para el viaje. ¡Prepárate!`,
-      datos_extra: { solicitud_id: oferta.solicitud_id.toString() },
+      cuerpo: `${pasajeroNombre} ha aceptado tu oferta para el viaje. Puedes contactarlo al ${oferta.pasajero_telefono}.`,
+      datos_extra: { 
+        solicitud_id: oferta.solicitud_id.toString(),
+        pasajero_telefono: oferta.pasajero_telefono
+      },
       fcm_token: currentToken
     });
 
@@ -478,6 +493,103 @@ export const getOfertasBySolicitud = async (req, res, next) => {
     return success(res, rows)
   } catch (err) {
     next(err)
+  }
+}
+
+/**
+ * Obtener los viajes asignados al chofer autenticado (Aceptados, En proceso, Completados)
+ */
+export const getMisViajesChofer = async (req, res, next) => {
+  try {
+    const { id: usuarioId } = req.usuario;
+
+    // 1. Obtener el ID de chofer del usuario actual
+    const { rows: choferRows } = await query(
+      'SELECT id FROM choferes WHERE usuario_id = $1',
+      [usuarioId]
+    )
+    if (choferRows.length === 0) {
+      return forbidden(res, 'No tienes un perfil de chofer activo')
+    }
+    const choferId = choferRows[0].id;
+
+    const { rows } = await query(
+      `SELECT v.*, u.nombre as pasajero_nombre, u.telefono as pasajero_telefono
+       FROM v_solicitudes v
+       JOIN solicitudes s ON s.id = v.id
+       JOIN usuarios u ON u.id = s.pasajero_id
+       WHERE s.chofer_seleccionado_id = $1
+       ORDER BY s.creada_en DESC`,
+      [choferId]
+    )
+    return success(res, rows)
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * El chofer cancela un viaje que ya había aceptado
+ */
+export const cancelarViajeChofer = async (req, res, next) => {
+  const client = await getClient()
+  try {
+    const { id: solicitudId } = req.params
+    const { id: usuarioId } = req.usuario
+
+    // 1. Obtener ID de chofer
+    const { rows: choferRows } = await client.query('SELECT id FROM choferes WHERE usuario_id = $1', [usuarioId])
+    if (choferRows.length === 0) return forbidden(res, 'No eres chofer')
+    const choferId = choferRows[0].id
+
+    await client.query('BEGIN')
+
+    // 2. Verificar que el viaje le pertenece y está en proceso o aceptado
+    const { rows: solRows } = await client.query(
+      'SELECT * FROM solicitudes WHERE id = $1 AND chofer_seleccionado_id = $2',
+      [solicitudId, choferId]
+    )
+
+    if (solRows.length === 0) {
+      await client.query('ROLLBACK')
+      return notFound(res, 'Viaje no encontrado o no te pertenece')
+    }
+
+    const solicitud = solRows[0]
+    if (solicitud.estado === 'completada' || solicitud.estado === 'cancelada') {
+      await client.query('ROLLBACK')
+      return badRequest(res, 'No se puede cancelar un viaje finalizado o ya cancelado')
+    }
+
+    // 3. Liberar la solicitud: volver a estado 'activa' y quitar chofer asignado
+    await client.query(
+      "UPDATE solicitudes SET estado = 'activa', chofer_seleccionado_id = NULL WHERE id = $1",
+      [solicitudId]
+    )
+
+    // 4. (Opcional) Marcar la respuesta del chofer como 'rechazada' o 'cancelada_chofer'
+    await client.query(
+      "UPDATE respuestas_solicitud SET estado = 'rechazado' WHERE solicitud_id = $1 AND chofer_id = $2",
+      [solicitudId, choferId]
+    )
+
+    await client.query('COMMIT')
+
+    // 5. Notificar al pasajero
+    sendNotification({
+      usuario_id: solicitud.pasajero_id,
+      tipo: 'viaje_cancelado',
+      titulo: '⚠️ Viaje cancelado por el chofer',
+      cuerpo: 'El chofer ha cancelado el compromiso. Tu solicitud vuelve a estar activa para otros choferes.',
+      datos_extra: { solicitud_id: solicitudId.toString() }
+    }).catch(console.error)
+
+    return success(res, null, 'Viaje cancelado correctamente. La solicitud vuelve a estar activa.')
+  } catch (err) {
+    await client.query('ROLLBACK')
+    next(err)
+  } finally {
+    client.release()
   }
 }
 

@@ -97,8 +97,14 @@ public interface ApiService {
     @GET("api/solicitudes/mis-solicitudes")
     Call<ApiResponse<List<RideRequest>>> getMisSolicitudes();
 
+    @GET("api/solicitudes/mis-viajes")
+    Call<ApiResponse<List<RideRequest>>> getMisViajesChofer();
+
     @POST("api/solicitudes/{id}/cancelar")
     Call<ApiResponse<Void>> cancelarSolicitud(@Path("id") String id);
+
+    @POST("api/solicitudes/mis-viajes/{id}/cancelar")
+    Call<ApiResponse<Void>> cancelarViajeChofer(@Path("id") String id);
 
     @POST("api/solicitudes/{id}/finalizar")
     Call<ApiResponse<Object>> finalizarViaje(

@@ -75,6 +75,18 @@
             android:label="Mis Viajes"
             android:theme="@style/Theme.TeRecojo" />
 
+        <activity
+            android:name=".DriverTripsActivity"
+            android:exported="false"
+            android:label="Mis Viajes (Chofer)"
+            android:theme="@style/Theme.TeRecojo" />
+
+        <activity
+            android:name=".VerificationActivity"
+            android:exported="false"
+            android:label="Verificación"
+            android:theme="@style/Theme.TeRecojo" />
+
         <service
             android:name=".utils.MyFirebaseMessagingService"
             android:exported="false">

@@ -1,9 +1,11 @@
 package com.codram.terecojo.data.model;
 
 import com.google.gson.annotations.SerializedName;
+import java.io.Serializable;
 import java.util.List;
 
-public class RideRequest {
+public class RideRequest implements Serializable {
+    private static final long serialVersionUID = 1L;
     private String id;
     
     @SerializedName("pasajero_id")
@@ -11,6 +13,9 @@ public class RideRequest {
     
     @SerializedName("pasajero_nombre")
     private String pasajeroNombre;
+
+    @SerializedName("pasajero_telefono")
+    private String pasajeroTelefono;
     
     @SerializedName("origen_descripcion")
     private String origenDescripcion;
@@ -82,7 +87,8 @@ public class RideRequest {
     private boolean haRespondido;
 
     // Clase interna para las paradas
-    public static class Stop {
+    public static class Stop implements Serializable {
+        private static final long serialVersionUID = 1L;
         private String nombre;
         private double lat;
         private double lng;
@@ -121,6 +127,9 @@ public class RideRequest {
     
     public String getPasajeroNombre() { return pasajeroNombre; }
     public void setPasajeroNombre(String pasajeroNombre) { this.pasajeroNombre = pasajeroNombre; }
+    
+    public String getPasajeroTelefono() { return pasajeroTelefono; }
+    public void setPasajeroTelefono(String pasajeroTelefono) { this.pasajeroTelefono = pasajeroTelefono; }
     
     // Alias para compatibilidad con adaptadores existentes
     public String getPassengerName() { return pasajeroNombre; }

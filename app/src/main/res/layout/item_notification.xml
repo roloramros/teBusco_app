@@ -43,12 +43,26 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
+            android:layout_marginEnd="8dp"
             android:text="Cuerpo de la notificación donde se explica el evento ocurrido."
             android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
             android:textColor="@color/gray_dark"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnCall"
             app:layout_constraintStart_toStartOf="@id/tvTitle"
             app:layout_constraintTop_toBottomOf="@id/tvTitle" />
+
+        <ImageButton
+            android:id="@+id/btnCall"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Llamar"
+            android:src="@drawable/ic_call"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="@id/tvBody"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/tvBody"
+            app:tint="@color/success_green" />
 
         <TextView
             android:id="@+id/tvDate"

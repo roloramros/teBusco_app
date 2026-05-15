@@ -205,7 +205,7 @@ export const aprobarChofer = async (req, res, next) => {
       usuario_id: chofer.user_id,
       tipo: 'sistema_alerta',
       titulo: '✅ ¡Cuenta aprobada!',
-      cuerpo: '¡Buenas noticias! Tu cuenta de chofer ha sido aprobada. Ya puedes recibir solicitudes de viaje.',
+      cuerpo: '¡Buenas noticias! Tu cuenta de chofer ha sido aprobada. Por favor cierre sesión y vuelva a entrar para poder ofertar a solicitudes de viaje.',
       fcm_token: chofer.fcm_token
     }).catch(console.error)
 
@@ -295,17 +295,17 @@ export const getUsuarios = async (req, res, next) => {
 
     const whereSql = `WHERE ${whereClauses.join(' AND ')}`
 
-    const sql = `
-      SELECT u.id, u.nombre, u.username, u.telefono, u.email, u.tipo, 
-             u.foto_url, u.activo, u.verificado, u.fecha_registro,
-             p.nombre as provincia, m.nombre as municipio
-      FROM usuarios u
-      LEFT JOIN municipios m ON m.id = u.municipio_id
-      LEFT JOIN provincias p ON p.id = m.provincia_id
-      ${whereSql}
-      ORDER BY u.fecha_registro DESC
-      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
-    `
+const sql = `
+SELECT u.id, u.nombre, u.username, u.telefono, u.email, u.tipo,
+u.foto_url, u.activo, u.verificado, u.fecha_registro, u.ultimo_acceso,
+p.nombre as provincia, m.nombre as municipio
+FROM usuarios u
+LEFT JOIN municipios m ON m.id = u.municipio_id
+LEFT JOIN provincias p ON p.id = m.provincia_id
+${whereSql}
+ORDER BY u.fecha_registro DESC
+LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+`
 
     const { rows: data } = await query(sql, [...params, safeLimit, offset])
     const { rows: countRows } = await query(`SELECT COUNT(*) FROM usuarios u LEFT JOIN municipios m ON m.id = u.municipio_id LEFT JOIN provincias p ON p.id = m.provincia_id ${whereSql}`, params)
@@ -336,7 +336,7 @@ export const toggleUsuarioActivo = async (req, res, next) => {
 
     // Notificación
     const titulo = nuevoEstado ? '✅ Cuenta reactivada' : '⚠️ Cuenta suspendida'
-    const cuerpo = nuevoEstado 
+    const cuerpo = nuevoEstado
       ? 'Tu cuenta ha sido reactivada. Ya puedes usar Te Busco con normalidad.'
       : 'Tu cuenta ha sido suspendida temporalmente. Contacta al soporte.'
 
@@ -354,6 +354,52 @@ export const toggleUsuarioActivo = async (req, res, next) => {
   }
 }
 
+export const deleteUsuario = async (req, res, next) => {
+  const client = await getClient()
+  try {
+    const { id } = req.params
+
+    await client.query('BEGIN')
+
+    const { rows: userRows } = await client.query(
+      'SELECT id, tipo, nombre, fcm_token FROM usuarios WHERE id = $1',
+      [id]
+    )
+
+    if (userRows.length === 0) {
+      await client.query('ROLLBACK')
+      return notFound(res, 'Usuario no encontrado')
+    }
+
+    const user = userRows[0]
+    if (user.tipo === 'admin') {
+      await client.query('ROLLBACK')
+      return forbidden(res, 'No se puede eliminar un administrador')
+    }
+
+    await client.query('DELETE FROM valoraciones WHERE pasajero_id = $1', [id])
+    await client.query('DELETE FROM solicitudes WHERE pasajero_id = $1', [id])
+    await client.query('DELETE FROM usuarios WHERE id = $1', [id])
+
+    await client.query('COMMIT')
+
+    sendNotification({
+      usuario_id: id,
+      tipo: 'sistema_alerta',
+      titulo: '❌ Cuenta eliminada',
+      cuerpo: `Tu cuenta ha sido eliminada por el administrador del sistema.`,
+      fcm_token: user.fcm_token
+    }).catch(console.error)
+
+    return success(res, null, 'Usuario eliminado correctamente')
+  } catch (err) {
+    await client.query('ROLLBACK')
+    next(err)
+  } finally {
+    client.release()
+  }
+}
+
 export const getSolicitudes = async (req, res, next) => {
   try {
     const { estado, page = 1, limit = 20 } = req.query
@@ -364,24 +410,31 @@ export const getSolicitudes = async (req, res, next) => {
     let params = []
 
     if (estado) {
-      whereClauses.push(`s.estado = $1`)
+      whereClauses.push(`s.estado = $${params.length + 1}`)
       params.push(estado)
+    }
+
+    // Si el administrador tiene un municipio asignado, filtrar por él
+    if (req.usuario.municipio_id) {
+      whereClauses.push(`s.origen_municipio_id = $${params.length + 1}`)
+      params.push(req.usuario.municipio_id)
     }
 
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
 
     const sql = `
-      SELECT v.*, uc.nombre as chofer_nombre
+      SELECT v.*, uc.nombre as chofer_nombre, up.telefono as pasajero_telefono
       FROM v_solicitudes v
       JOIN solicitudes s ON s.id = v.id
       LEFT JOIN usuarios uc ON uc.id = s.chofer_seleccionado_id
+      JOIN usuarios up ON up.id = s.pasajero_id
       ${whereSql}
       ORDER BY v.creada_en DESC
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `
 
     const { rows: data } = await query(sql, [...params, safeLimit, offset])
-    const { rows: countRows } = await query(`SELECT COUNT(*) FROM solicitudes ${whereSql}`, params)
+    const { rows: countRows } = await query(`SELECT COUNT(*) FROM solicitudes s ${whereSql}`, params)
 
     return success(res, {
       data,

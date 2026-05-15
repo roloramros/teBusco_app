@@ -182,6 +182,14 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
                         intent = new Intent(this, DriverActivity.class);
                         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
                     }
+                } else if (id == R.id.nav_driver_trips) {
+                    if (!(this instanceof DriverTripsActivity)) {
+                        intent = new Intent(this, DriverTripsActivity.class);
+                    }
+                } else if (id == R.id.nav_driver_verification) {
+                    if (!(this instanceof VerificationActivity)) {
+                        intent = new Intent(this, VerificationActivity.class);
+                    }
                 } else if (id == R.id.nav_driver_oferts) {
                     if (!(this instanceof DriverOffersActivity)) {
                         intent = new Intent(this, DriverOffersActivity.class);
@@ -225,6 +233,12 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
                 // Items de Chofer
                 MenuItem navRadar = menu.findItem(R.id.nav_driver_radar);
                 if (navRadar != null) navRadar.setVisible(isChofer);
+
+                MenuItem navDriverTrips = menu.findItem(R.id.nav_driver_trips);
+                if (navDriverTrips != null) navDriverTrips.setVisible(isChofer);
+
+                MenuItem navDriverVerif = menu.findItem(R.id.nav_driver_verification);
+                if (navDriverVerif != null) navDriverVerif.setVisible(isChofer);
                 
                 MenuItem navVehicles = menu.findItem(R.id.nav_my_vehicles);
                 if (navVehicles != null) navVehicles.setVisible(isChofer);

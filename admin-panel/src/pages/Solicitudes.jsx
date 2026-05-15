@@ -18,7 +18,18 @@ const Solicitudes = () => {
 
   const columns = [
     { key: 'id', label: 'ID', render: (item) => <code className="text-xs">{shortId(item.id)}</code> },
-    { key: 'pasajero_nombre', label: 'Pasajero' },
+    { 
+      key: 'pasajero_nombre', 
+      label: 'Pasajero', 
+      render: (item) => (
+        <div className="flex flex-col">
+          <span className="font-medium">{item.pasajero_nombre}</span>
+          <a href={`tel:${item.pasajero_telefono}`} className="text-[10px] text-brand-600 hover:underline flex items-center gap-1">
+            📞 {item.pasajero_telefono}
+          </a>
+        </div>
+      )
+    },
     { key: 'chofer_nombre', label: 'Chofer', render: (item) => item.chofer_nombre || <span className="text-gray-400 italic text-xs">Sin asignar</span> },
     { key: 'origen_descripcion', label: 'Origen' },
     { key: 'destino_descripcion', label: 'Destino' },

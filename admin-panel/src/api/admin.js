@@ -8,5 +8,6 @@ export const aprobarChofer = (id) => api.post(`/api/admin/choferes/${id}/aprobar
 export const rechazarChofer = (id, motivo) => api.post(`/api/admin/choferes/${id}/rechazar`, { motivo }).then(res => res.data.data);
 export const getUsuarios = (params) => api.get('/api/admin/usuarios', { params }).then(res => res.data.data.data);
 export const toggleUsuarioActivo = (id) => api.patch(`/api/admin/usuarios/${id}/toggle-activo`).then(res => res.data.data);
+export const deleteUsuario = (id) => api.delete(`/api/admin/usuarios/${id}`).then(res => res.data.data);
 export const getSolicitudes = (params) => api.get('/api/admin/solicitudes', { params }).then(res => res.data.data.data);
 export const broadcastNotification = (body) => api.post('/api/admin/notificaciones/broadcast', body).then(res => res.data.data);

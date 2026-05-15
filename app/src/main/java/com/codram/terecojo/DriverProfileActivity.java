@@ -151,11 +151,12 @@ public class DriverProfileActivity extends BaseActivity implements RideRequestAd
 
     @Override
     public void onViewMap(RideRequest request) {
-        // Al ver mapa desde el perfil, llevamos al usuario al radar principal (DriverActivity)
+        // NUEVO
         Intent intent = new Intent(this, DriverActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+        intent.putExtra("AUTO_ROUTE_JSON", new com.google.gson.Gson().toJson(request));
+        intent.putExtra("AUTO_OPEN_ROUTE", true);
+        intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         startActivity(intent);
-        finish();
     }
 
     private void updateEmptyState(boolean isEmpty) {
