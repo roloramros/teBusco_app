@@ -16,6 +16,7 @@ public class SessionManager {
     private static final String PREF_NAME = "TeRecojoPrefs";
     private static final String KEY_TOKEN = "auth_token";
     private static final String KEY_USER = "user_data";
+    private static final String KEY_TOKEN_SAVED_AT = "token_saved_at"; // NUEVO
     
     private static SessionManager instance;
     private final SharedPreferences prefs;
@@ -46,10 +47,23 @@ public class SessionManager {
         prefs.edit().putString(KEY_USER, json).apply();
     }
 
+    public void saveSession(String token, AuthResponse.User user) { // NUEVO
+        String userJson = gson.toJson(user);
+        prefs.edit()
+                .putString(KEY_TOKEN, token)
+                .putString(KEY_USER, userJson)
+                .putLong(KEY_TOKEN_SAVED_AT, System.currentTimeMillis())
+                .apply();
+    }
+
     public AuthResponse.User getUser() {
         String json = prefs.getString(KEY_USER, null);
         if (json == null) return null;
         return gson.fromJson(json, AuthResponse.User.class);
+    }
+
+    public long getTokenSavedAt() { // NUEVO
+        return prefs.getLong(KEY_TOKEN_SAVED_AT, 0L);
     }
 
     public void clear() {

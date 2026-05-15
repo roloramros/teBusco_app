@@ -161,10 +161,7 @@ public class LoginActivity extends AppCompatActivity {
                     }
 
                     SessionManager sessionManager = SessionManager.getInstance(LoginActivity.this);
-                    if (binding.cbRememberMe.isChecked()) {
-                        sessionManager.saveToken(auth.getToken());
-                    }
-                    sessionManager.saveUser(auth.getUser());
+                    sessionManager.saveSession(auth.getToken(), auth.getUser()); // MODIFICADO
 
                     Toast.makeText(LoginActivity.this, "Bienvenido " + auth.getUser().getNombre(), Toast.LENGTH_LONG).show();
                     navigateToMain(auth.getUser());

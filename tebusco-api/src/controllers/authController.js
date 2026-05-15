@@ -5,6 +5,7 @@ import * as response from '../utils/response.js'
 import { sendNotification } from '../services/notificationService.js'
 
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '12')
+const SESSION_MS = parseInt(process.env.SESSION_DURATION_DAYS || '30') * 24 * 60 * 60 * 1000 // NUEVO
 
 // ---------------------------------------------------------
 // POST /api/auth/registro
@@ -126,7 +127,7 @@ export const registro = async (req, res) => {
     // 7. Generar token y crear sesión
     const tokenPayload = { id: usuario.id, tipo: usuario.tipo }
     const token = generateToken(tokenPayload)
-    const expira = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 horas
+    const expira = new Date(Date.now() + SESSION_MS) // MODIFICADO
 
     const dispositivo = (req.headers['user-agent'] || 'desconocido').substring(0, 255)
 
@@ -222,7 +223,7 @@ export const login = async (req, res) => {
   // 4. Generar token y registrar sesión
   const tokenPayload = { id: usuario.id, tipo: usuario.tipo }
   const token = generateToken(tokenPayload)
-  const expira = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 horas
+  const expira = new Date(Date.now() + SESSION_MS) // MODIFICADO
 
   const dispositivo = (req.headers['user-agent'] || 'desconocido').substring(0, 255)
 

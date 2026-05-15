@@ -34,6 +34,17 @@ export const authenticate = async (req, res, next) => {
       return forbidden(res, 'Cuenta desactivada')
     }
 
+    // Renovación deslizante de sesión (NUEVO)
+    const SESSION_MS = parseInt(process.env.SESSION_DURATION_DAYS || '30') * 24 * 60 * 60 * 1000
+    const RENEWAL_THRESHOLD_MS = SESSION_MS / 2
+    const msRestantes = new Date(sesion.expira_en).getTime() - Date.now()
+
+    if (msRestantes < RENEWAL_THRESHOLD_MS) {
+      const nuevaExpiracion = new Date(Date.now() + SESSION_MS)
+      query('UPDATE sesiones SET expira_en = $1 WHERE token = $2', [nuevaExpiracion, token])
+        .catch(err => console.error('⚠️ Error renovando sesión:', err.message))
+    }
+
     // Adjuntar datos del usuario al request para usarlos en controladores
     req.usuario = {
       id:          sesion.usuario_id,
