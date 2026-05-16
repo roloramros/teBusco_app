@@ -28,17 +28,25 @@ export const sendNotification = async ({
         [municipioId]
       );
 
+      // NUEVO — INSERT batch: una sola query para todos los usuarios
       if (users.length > 0) {
-        // Crear las inserciones masivas (o individuales si preferimos simplicidad)
-        for (const user of users) {
-          await query(
-            `INSERT INTO notificaciones (
-              usuario_id, actor_id, tipo, titulo, cuerpo, datos_extra
-            ) VALUES ($1, $2, $3, $4, $5, $6)`,
-            [user.usuario_id, actor_id, tipo, titulo, cuerpo, JSON.stringify(datos_extra)]
-          );
-        }
-        console.log(`📝 Notificación de tópico ${topic} registrada para ${users.length} usuarios.`);
+        const values = users.map((_, i) =>
+          `($${i * 6 + 1}, $${i * 6 + 2}, $${i * 6 + 3}, $${i * 6 + 4}, $${i * 6 + 5}, $${i * 6 + 6})`
+        )
+        const params = users.flatMap(u => [
+          u.usuario_id,
+          actor_id ?? null,
+          tipo,
+          titulo,
+          cuerpo,
+          JSON.stringify(datos_extra)
+        ])
+        await query(
+          `INSERT INTO notificaciones (usuario_id, actor_id, tipo, titulo, cuerpo, datos_extra)
+           VALUES ${values.join(', ')}`,
+          params
+        )
+        console.log(`📝 Notificación de tópico ${topic} registrada para ${users.length} usuarios en batch.`)
       }
     } else if (usuario_id) {
       // Persistencia normal para un usuario específico
@@ -53,7 +61,7 @@ export const sendNotification = async ({
       console.log(`📝 Notificación registrada en BD (ID: ${lastNotifId}, Tipo: ${tipo})`)
     }
 
-    // 2. Enviar por FCM (Push) si se proporciona token o tema
+      // 2. Enviar por FCM (Push) si se proporciona token o tema
     console.log(`📡 Preparando envío Push: topic=${topic}, token=${fcm_token ? 'SÍ' : 'NO'}, firebase_init=${admin.apps.length > 0}`);
     
     if (admin.apps.length > 0) {
@@ -89,20 +97,63 @@ export const sendNotification = async ({
         message.data.notificacion_id = String(lastNotifId);
       }
 
+      console.log(`📦 Payload FCM: ${JSON.stringify(message.notification)} | Data: ${JSON.stringify(message.data)}`);
+
       if (topic) {
-        message.topic = topic
-        console.log(`📤 Enviando Push a TEMA: ${topic}...`);
-        admin.messaging().send(message)
-          .then(res => console.log(`✅ Push enviado con éxito a tema ${topic}. Response:`, res))
-          .catch(err => console.error(`❌ Error al enviar Push a tema ${topic}:`, err.message))
-      } else if (fcm_token) {
+        // NUEVO — FCM multicast con chunks de 500 (límite Firebase)
+        try {
+          if (topic.startsWith('municipio_')) {
+            const municipioId = topic.replace('municipio_', '');
+            const FCM_CHUNK_SIZE = 500
+            const { rows: usersWithTokens } = await query(
+              `SELECT u.fcm_token FROM choferes c
+               JOIN usuarios u ON u.id = c.usuario_id
+               WHERE c.municipio_base_id = $1 AND u.fcm_token IS NOT NULL AND u.fcm_token != ''`,
+              [municipioId]
+            )
+            const tokens = usersWithTokens.map(u => u.fcm_token)
+
+            if (tokens.length > 0) {
+              const chunks = []
+              for (let i = 0; i < tokens.length; i += FCM_CHUNK_SIZE) {
+                chunks.push(tokens.slice(i, i + FCM_CHUNK_SIZE))
+              }
+              const multicastMessage = {
+                notification: { title: titulo, body: cuerpo },
+                android: message.android,
+                data: message.data
+              }
+              await Promise.allSettled(
+                chunks.map(chunk =>
+                  admin.messaging().sendEachForMulticast({ ...multicastMessage, tokens: chunk })
+                    .then(r => console.log(`✅ FCM multicast: ${r.successCount} enviados, ${r.failureCount} fallidos`))
+                    .catch(err => console.error('❌ Error FCM multicast municipio:', err.message))
+                )
+              )
+            }
+          } else {
+            // Soporte para otros tópicos no municipio_ (envío normal)
+            message.topic = topic
+            // MODIFICADO — Añadido await
+            await admin.messaging().send(message)
+              .then(res => console.log(`✅ Push enviado con éxito a tema ${topic}. Response:`, res))
+              .catch(err => console.error(`❌ Error al enviar Push a tema ${topic}:`, err.message))
+          }
+        } catch (fcmErr) {
+          console.error('❌ Error en Fase 2 (FCM Topic/Multicast):', fcmErr.message);
+        }
+      } else if (fcm_token && fcm_token.trim() !== '') {
+        // MODIFICADO — Validación de token vacío y añadido await
         message.token = fcm_token
-        console.log(`📤 Enviando Push a TOKEN individual...`);
-        admin.messaging().send(message)
-          .then(res => console.log(`✅ Push enviado con éxito a token. Response:`, res))
-          .catch(err => console.error(`❌ Error al enviar Push a token:`, err.message))
+        console.log(`📤 Enviando Push a TOKEN individual: ${fcm_token.substring(0, 10)}...`);
+        try {
+          const res = await admin.messaging().send(message);
+          console.log(`✅ Push enviado con éxito a token. Response:`, res);
+        } catch (err) {
+          console.error(`❌ Error al enviar Push a token:`, err.message);
+        }
       } else {
-        console.warn('⚠️ No se proporcionó ni topic ni fcm_token. Saltando envío Push.');
+        console.warn(`⚠️ No se proporcionó ni topic ni fcm_token válido para usuario_id: ${usuario_id}. Saltando envío Push.`);
       }
     } else {
       console.error('❌ Firebase Admin no está inicializado. No se puede enviar Push.');

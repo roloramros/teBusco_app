@@ -351,7 +351,7 @@ public class MainActivity extends BaseActivity {
         final List<Municipality>[] municipalities = new List[]{new ArrayList<>()};
 
         // Cargar Provincias
-        RetrofitClient.getService(this).getProvincias().enqueue(new Callback<ApiResponse<List<Province>>>() {
+        RetrofitClient.getService().getProvincias().enqueue(new Callback<ApiResponse<List<Province>>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<List<Province>>> call, Response<ApiResponse<List<Province>>> response) {
                 if (response.isSuccessful() && response.body() != null) {
@@ -372,7 +372,7 @@ public class MainActivity extends BaseActivity {
             public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
                 if (position > 0) {
                     int provId = provinces[0].get(position - 1).getId();
-                    RetrofitClient.getService(MainActivity.this).getMunicipios(provId).enqueue(new Callback<ApiResponse<MunicipalityResponse>>() {
+                    RetrofitClient.getService().getMunicipios(provId).enqueue(new Callback<ApiResponse<MunicipalityResponse>>() { // MODIFICADO
                         @Override
                         public void onResponse(Call<ApiResponse<MunicipalityResponse>> call, Response<ApiResponse<MunicipalityResponse>> response) {
                             if (response.isSuccessful() && response.body() != null) {
@@ -456,7 +456,7 @@ public class MainActivity extends BaseActivity {
         }
         request.setParadas(paradas);
 
-        RetrofitClient.getService(this).createSolicitud(request).enqueue(new Callback<ApiResponse<RideRequest>>() {
+        RetrofitClient.getService().createSolicitud(request).enqueue(new Callback<ApiResponse<RideRequest>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<RideRequest>> call, Response<ApiResponse<RideRequest>> response) {
                 if (response.isSuccessful()) {

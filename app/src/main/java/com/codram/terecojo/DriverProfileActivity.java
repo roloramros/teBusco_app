@@ -184,7 +184,7 @@ public class DriverProfileActivity extends BaseActivity implements RideRequestAd
     }
 
     private void loadRequests() {
-        RetrofitClient.getService(this).getRadarSolicitudes().enqueue(new Callback<ApiResponse<List<RideRequest>>>() {
+        RetrofitClient.getService().getRadarSolicitudes().enqueue(new Callback<ApiResponse<List<RideRequest>>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<List<RideRequest>>> call, Response<ApiResponse<List<RideRequest>>> response) {
                 profileBinding.swipeRefreshRadar.setRefreshing(false);

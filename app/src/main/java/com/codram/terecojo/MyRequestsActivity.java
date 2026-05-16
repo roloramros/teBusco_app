@@ -123,7 +123,7 @@ public class MyRequestsActivity extends BaseActivity implements MyRequestsAdapte
     }
 
     private void fetchMyRequests() {
-        RetrofitClient.getService(this).getMisSolicitudes().enqueue(new Callback<ApiResponse<List<RideRequest>>>() {
+        RetrofitClient.getService().getMisSolicitudes().enqueue(new Callback<ApiResponse<List<RideRequest>>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<List<RideRequest>>> call, Response<ApiResponse<List<RideRequest>>> response) {
                 binding.swipeRefresh.setRefreshing(false);
@@ -162,7 +162,7 @@ public class MyRequestsActivity extends BaseActivity implements MyRequestsAdapte
     }
 
     private void cancelTrip(RideRequest request) {
-        RetrofitClient.getService(this).cancelarSolicitud(request.getId()).enqueue(new Callback<ApiResponse<Void>>() {
+        RetrofitClient.getService().cancelarSolicitud(request.getId()).enqueue(new Callback<ApiResponse<Void>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
                 if (response.isSuccessful()) {
@@ -229,7 +229,7 @@ public class MyRequestsActivity extends BaseActivity implements MyRequestsAdapte
     }
 
     private void fetchOffersForDialog(String requestId, List<Offer> offerList, OfferAdapter offerAdapter) {
-        RetrofitClient.getService(this).getOfertas(requestId).enqueue(new Callback<ApiResponse<List<Offer>>>() {
+        RetrofitClient.getService().getOfertas(requestId).enqueue(new Callback<ApiResponse<List<Offer>>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<List<Offer>>> call, Response<ApiResponse<List<Offer>>> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
@@ -247,7 +247,7 @@ public class MyRequestsActivity extends BaseActivity implements MyRequestsAdapte
     }
 
     private void acceptOffer(Offer offer, AlertDialog dialogToClose) {
-        RetrofitClient.getService(this).aceptarOferta(offer.getId()).enqueue(new Callback<ApiResponse<Void>>() {
+        RetrofitClient.getService().aceptarOferta(offer.getId()).enqueue(new Callback<ApiResponse<Void>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
                 if (response.isSuccessful()) {
@@ -293,7 +293,7 @@ public class MyRequestsActivity extends BaseActivity implements MyRequestsAdapte
 
     private void executeRejectOffer(Offer offer, RideRequest request, String reason, List<Offer> offerList, OfferAdapter offerAdapter) {
         RejectOfferRequest rejectRequest = new RejectOfferRequest(reason);
-        RetrofitClient.getService(this).rechazarOferta(offer.getId(), rejectRequest).enqueue(new Callback<ApiResponse<Void>>() {
+        RetrofitClient.getService().rechazarOferta(offer.getId(), rejectRequest).enqueue(new Callback<ApiResponse<Void>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
                 if (response.isSuccessful()) {

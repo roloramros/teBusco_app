@@ -102,7 +102,7 @@ public class NotificationsActivity extends BaseActivity implements NotificationA
 
     private void fetchNotifications() {
         binding.swipeRefresh.setRefreshing(true);
-        RetrofitClient.getService(this).getNotifications().enqueue(new Callback<ApiResponse<List<Notification>>>() {
+        RetrofitClient.getService().getNotifications().enqueue(new Callback<ApiResponse<List<Notification>>>() { // MODIFICADO
             @Override
             public void onResponse(@NonNull Call<ApiResponse<List<Notification>>> call, @NonNull Response<ApiResponse<List<Notification>>> response) {
                 binding.swipeRefresh.setRefreshing(false);
@@ -134,7 +134,7 @@ public class NotificationsActivity extends BaseActivity implements NotificationA
     }
 
     private void markAllAsRead() {
-        RetrofitClient.getService(this).markAllAsRead().enqueue(new Callback<ApiResponse<Void>>() {
+        RetrofitClient.getService().markAllAsRead().enqueue(new Callback<ApiResponse<Void>>() {
             @Override
             public void onResponse(@NonNull Call<ApiResponse<Void>> call, @NonNull Response<ApiResponse<Void>> response) {
                 if (response.isSuccessful()) {
@@ -162,7 +162,7 @@ public class NotificationsActivity extends BaseActivity implements NotificationA
     }
 
     private void deleteAll() {
-        RetrofitClient.getService(this).deleteAllNotifications().enqueue(new Callback<ApiResponse<Void>>() {
+        RetrofitClient.getService().deleteAllNotifications().enqueue(new Callback<ApiResponse<Void>>() {
             @Override
             public void onResponse(@NonNull Call<ApiResponse<Void>> call, @NonNull Response<ApiResponse<Void>> response) {
                 if (response.isSuccessful()) {
@@ -201,7 +201,7 @@ public class NotificationsActivity extends BaseActivity implements NotificationA
     }
 
     private void deleteSingle(Notification notification) {
-        RetrofitClient.getService(this).deleteNotification(notification.getId()).enqueue(new Callback<ApiResponse<Void>>() {
+        RetrofitClient.getService().deleteNotification(notification.getId()).enqueue(new Callback<ApiResponse<Void>>() { // MODIFICADO
             @Override
             public void onResponse(@NonNull Call<ApiResponse<Void>> call, @NonNull Response<ApiResponse<Void>> response) {
                 if (response.isSuccessful()) {
@@ -230,7 +230,7 @@ public class NotificationsActivity extends BaseActivity implements NotificationA
     }
 
     private void markAsRead(Notification notification) {
-        RetrofitClient.getService(this).markNotificationAsRead(notification.getId()).enqueue(new Callback<ApiResponse<Void>>() {
+        RetrofitClient.getService().markNotificationAsRead(notification.getId()).enqueue(new Callback<ApiResponse<Void>>() { // MODIFICADO
             @Override
             public void onResponse(@NonNull Call<ApiResponse<Void>> call, @NonNull Response<ApiResponse<Void>> response) {
                 if (response.isSuccessful()) {

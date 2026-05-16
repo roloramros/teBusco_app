@@ -110,7 +110,7 @@ export const registro = async (req, res) => {
         tipo,
         provincia_id || null,
         municipio_id || null,
-        fcm_token || null
+        (fcm_token && fcm_token.trim() !== '') ? fcm_token : null
       ]
     )
     const usuario = newUser[0]
@@ -367,12 +367,14 @@ export const me = async (req, res) => {
 // POST /api/auth/update-fcm-token
 // ---------------------------------------------------------
 export const updateFcmToken = async (req, res) => {
-  const { fcm_token } = req.body
+  let { fcm_token } = req.body
   const usuarioId = req.usuario.id
 
-  if (!fcm_token) {
-    return response.badRequest(res, 'fcm_token es obligatorio')
+  if (!fcm_token || fcm_token.trim() === '') {
+    return response.badRequest(res, 'fcm_token es obligatorio y no puede estar vacío')
   }
+
+  fcm_token = fcm_token.trim()
 
   try {
     // Evitar que el token esté asociado a otros usuarios (unicidad lógica por dispositivo)

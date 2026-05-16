@@ -60,7 +60,7 @@ public class RegisterActivity extends AppCompatActivity {
     }
 
     private void loadProvinces() {
-        RetrofitClient.getService(this).getProvincias().enqueue(new Callback<ApiResponse<List<Province>>>() {
+        RetrofitClient.getService().getProvincias().enqueue(new Callback<ApiResponse<List<Province>>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<List<Province>>> call, Response<ApiResponse<List<Province>>> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isOk()) {
@@ -90,7 +90,7 @@ public class RegisterActivity extends AppCompatActivity {
     }
 
     private void loadMunicipios(int provinciaId) {
-        RetrofitClient.getService(this).getMunicipios(provinciaId).enqueue(new Callback<ApiResponse<MunicipalityResponse>>() {
+        RetrofitClient.getService().getMunicipios(provinciaId).enqueue(new Callback<ApiResponse<MunicipalityResponse>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<MunicipalityResponse>> call, Response<ApiResponse<MunicipalityResponse>> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isOk()) {
@@ -152,7 +152,7 @@ public class RegisterActivity extends AppCompatActivity {
         RegisterRequest request = new RegisterRequest(nombre, username, telefono, null, 
                                                       password, tipo, provinciaId, municipioId, fcmToken);
 
-        RetrofitClient.getService(this).registro(request).enqueue(new Callback<ApiResponse<AuthResponse>>() {
+        RetrofitClient.getService().registro(request).enqueue(new Callback<ApiResponse<AuthResponse>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<AuthResponse>> call, Response<ApiResponse<AuthResponse>> response) {
                 binding.btnRegister.setEnabled(true);

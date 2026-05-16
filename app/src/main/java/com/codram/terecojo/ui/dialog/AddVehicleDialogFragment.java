@@ -131,7 +131,7 @@ public class AddVehicleDialogFragment extends DialogFragment {
     }
 
     private void loadVehicleTypes() {
-        ApiService apiService = RetrofitClient.getService(requireContext());
+        ApiService apiService = RetrofitClient.getService(); // MODIFICADO
         apiService.getVehicleTypes().enqueue(new Callback<ApiResponse<List<String>>>() {
             @Override
             public void onResponse(Call<ApiResponse<List<String>>> call, Response<ApiResponse<List<String>>> response) {
@@ -188,7 +188,7 @@ public class AddVehicleDialogFragment extends DialogFragment {
         RequestBody rbTipo = RequestBody.create(MediaType.parse("text/plain"), tipo);
         RequestBody rbCapacidad = RequestBody.create(MediaType.parse("text/plain"), capacidad);
 
-        ApiService apiService = RetrofitClient.getService(requireContext());
+        ApiService apiService = RetrofitClient.getService(); // MODIFICADO
         Call<ApiResponse<Vehicle>> call;
         
         if (isEditMode) {

@@ -99,7 +99,7 @@ public class MyVehiclesActivity extends BaseActivity {
     }
 
     private void deleteVehicle(Vehicle vehicle) {
-        ApiService apiService = RetrofitClient.getService(this);
+        ApiService apiService = RetrofitClient.getService(); // MODIFICADO
         apiService.deleteVehicle(vehicle.getId()).enqueue(new Callback<ApiResponse<Void>>() {
             @Override
             public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
@@ -119,7 +119,7 @@ public class MyVehiclesActivity extends BaseActivity {
     }
 
     private void loadVehicles() {
-        ApiService apiService = RetrofitClient.getService(this);
+        ApiService apiService = RetrofitClient.getService(); // MODIFICADO;
         apiService.getVehicles().enqueue(new Callback<ApiResponse<List<Vehicle>>>() {
             @Override
             public void onResponse(Call<ApiResponse<List<Vehicle>>> call, Response<ApiResponse<List<Vehicle>>> response) {

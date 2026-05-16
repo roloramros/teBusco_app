@@ -63,7 +63,7 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void fetchStats() {
-        RetrofitClient.getService(this).getStats().enqueue(new Callback<ApiResponse<StatsResponse>>() {
+        RetrofitClient.getService().getStats().enqueue(new Callback<ApiResponse<StatsResponse>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<StatsResponse>> call, Response<ApiResponse<StatsResponse>> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isOk()) {
@@ -82,7 +82,7 @@ public class LoginActivity extends AppCompatActivity {
         SessionManager sessionManager = SessionManager.getInstance(this);
         if (sessionManager.getToken() != null) {
             Log.d("TeRecojo", "Token encontrado, intentando auto-login...");
-            RetrofitClient.getService(this).getMe().enqueue(new Callback<ApiResponse<AuthResponse.User>>() {
+            RetrofitClient.getService().getMe().enqueue(new Callback<ApiResponse<AuthResponse.User>>() { // MODIFICADO
                 @Override
                 public void onResponse(Call<ApiResponse<AuthResponse.User>> call, Response<ApiResponse<AuthResponse.User>> response) {
                     if (response.isSuccessful() && response.body() != null && response.body().isOk()) {
@@ -93,9 +93,7 @@ public class LoginActivity extends AppCompatActivity {
                         FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
                             if (task.isSuccessful()) {
                                 String token = task.getResult();
-                                RetrofitClient.getService(LoginActivity.this)
-                                        .updateFcmToken(new FcmTokenRequest(token))
-                                        .enqueue(new Callback<ApiResponse<Void>>() {
+                                RetrofitClient.getService().updateFcmToken(new FcmTokenRequest(token)).enqueue(new Callback<ApiResponse<Void>>() { // MODIFICADO
                                             @Override
                                             public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
                                                 Log.d("FCM", "Token actualizado en auto-login");
@@ -146,7 +144,7 @@ public class LoginActivity extends AppCompatActivity {
         Log.d("TeRecojo", "Intentando login para: " + user + " con FCM Token: " + (fcmToken != null ? "SI" : "NO"));
         LoginRequest request = new LoginRequest(user, password, fcmToken);
 
-        RetrofitClient.getService(this).login(request).enqueue(new Callback<ApiResponse<AuthResponse>>() {
+        RetrofitClient.getService().login(request).enqueue(new Callback<ApiResponse<AuthResponse>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<AuthResponse>> call, Response<ApiResponse<AuthResponse>> response) {
                 binding.btnEnter.setEnabled(true);

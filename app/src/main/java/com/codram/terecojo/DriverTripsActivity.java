@@ -55,7 +55,7 @@ public class DriverTripsActivity extends BaseActivity implements DriverTripsAdap
 
     private void fetchTrips() {
         binding.swipeRefresh.setRefreshing(true);
-        RetrofitClient.getService(this).getMisViajesChofer().enqueue(new Callback<ApiResponse<List<RideRequest>>>() {
+        RetrofitClient.getService().getMisViajesChofer().enqueue(new Callback<ApiResponse<List<RideRequest>>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<List<RideRequest>>> call, Response<ApiResponse<List<RideRequest>>> response) {
                 binding.swipeRefresh.setRefreshing(false);
@@ -103,7 +103,7 @@ public class DriverTripsActivity extends BaseActivity implements DriverTripsAdap
     }
 
     private void cancelTrip(RideRequest trip) {
-        RetrofitClient.getService(this).cancelarViajeChofer(trip.getId()).enqueue(new Callback<ApiResponse<Void>>() {
+        RetrofitClient.getService().cancelarViajeChofer(trip.getId()).enqueue(new Callback<ApiResponse<Void>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
                 if (response.isSuccessful()) {

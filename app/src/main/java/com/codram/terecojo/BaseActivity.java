@@ -400,7 +400,7 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
         android.view.View badge = headerView.findViewById(R.id.notificationBadge);
         if (badge == null) return;
 
-        RetrofitClient.getService(this).getNotifications().enqueue(new Callback<ApiResponse<List<Notification>>>() {
+        RetrofitClient.getService().getNotifications().enqueue(new Callback<ApiResponse<List<Notification>>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<List<Notification>>> call, Response<ApiResponse<List<Notification>>> response) {
                 if (response.isSuccessful() && response.body() != null) {

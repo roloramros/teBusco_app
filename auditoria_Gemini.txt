@@ -1,0 +1,129 @@
+He analizado la arquitectura, el código fuente (Node.js/Express, Android nativo y el panel de React) y la lógica de
+  negocio de TeRecojo (tebusco-api). Hablaré sin filtros: tienes una base funcional para un Producto Mínimo Viable
+  (MVP), pero estructuralmente el proyecto no está preparado para escalar a miles de usuarios. Si lanzas esto a
+  producción masiva hoy, tus costos de servidor se dispararán, tu app móvil será un dolor de cabeza para mantener y
+  tendrás problemas críticos de concurrencia.
+
+  A continuación, la auditoría completa dividida por áreas críticas, asumiendo mi rol como CTO de tu producto.
+
+  ---
+
+  1. Arquitectura y Escalabilidad (Puntos Débiles Críticos)
+
+   * ⚠️ Archivos estáticos y Uploads Locales: En index.js estás sirviendo los uploads (fotos de vehículos, perfiles)
+     directamente desde una carpeta local (/public/uploads). Esto mata la escalabilidad horizontal. Si el día de mañana
+     necesitas 2 o más servidores en un balanceador de carga para soportar picos de tráfico, las imágenes subidas en el
+     Servidor A no existirán en el Servidor B.
+       * Solución Obligatoria: Migrar inmediatamente las subidas de archivos a Amazon S3, Cloudflare R2 o Firebase
+         Storage. El backend solo debe guardar la URL del archivo, nunca el archivo físico.
+   * ⚠️ Rate Limiting en Memoria: Estás usando express-rate-limit con la configuración por defecto. Esto almacena las
+     IPs en la memoria RAM del proceso de Node. Si reinicias el servidor o tienes múltiples instancias, el límite se
+     pierde o no se comparte.
+       * Solución: Implementar Redis como store para el rate limiting. Redis también te servirá para manejar el estado
+         de las sesiones y cachés.
+   * Falta de Tiempo Real (WebSockets): Veo controladores RESTful clásicos para las ofertas y solicitudes
+     (solicitudController.js). Una app tipo ride-hailing (estilo inDrive/Uber) donde los choferes pujan, requiere
+     comunicación bidireccional. Si la app de Android está haciendo "Long Polling" o llamadas HTTP cada X segundos para
+     ver si hay ofertas nuevas, vas a saturar el servidor PostgreSQL y el ancho de banda inútilmente.
+       * Solución: Implementar Socket.io o MQTT para despachar las ofertas y actualizaciones de ubicación del GPS en
+         tiempo real.
+
+  2. Base de Datos y Rendimiento
+
+   * Riesgo de Mantenimiento (Consultas Crudas / Raw SQL): Tu API está llena de bloques masivos de client.query('BEGIN')
+     y queries de SQL concatenadas a mano (ej. la resolución de provincias y municipios en createSolicitud). Aunque
+     previenes inyecciones SQL usando parámetros $1, a nivel de arquitectura empresarial esto es deuda técnica pura.
+     Cualquier cambio en el modelo te obligará a buscar y reemplazar strings en decenas de archivos.
+       * Sugerencia: No pido que cambies todo hoy, pero para próximos microservicios o refactorizaciones masivas, debes
+         usar un Query Builder como Knex.js o un ORM moderno como Prisma o Drizzle.
+   * Falta de Caché Geográfica: Buscar cadenas de texto con ILIKE en PostgreSQL por cada solicitud de viaje (WHERE
+     m.nombre ILIKE $1 AND p.nombre ILIKE $2) es extremadamente ineficiente.
+       * Solución: Estas consultas de catálogo deben vivir en memoria (Redis) o, mejor aún, los clientes móviles y web
+         deberían enviar solo los IDs numéricos exactos apoyándose en un endpoint pre-cargado en la app, evitando
+         búsquedas de texto en la base de datos transaccional en cada viaje.
+
+  3. La App Móvil Android (El Mayor Cuello de Botella)
+
+   * Deuda Técnica Severa (Java + God Classes): Tu repositorio de Android (app/src/main/java/...) es un peligro. Tienes
+     archivos como MainActivity.java que pesan 34 KB y BaseActivity.java de 18 KB. Esto significa que tienes "God
+     Activities": clases masivas donde mezclas la vista, la llamada a la API y la lógica de negocio.
+       * Riesgo: Cada vez que agregues un feature, vas a romper dos. A los desarrolladores nuevos les tomará semanas
+         entender el flujo.
+       * Solución Urgente: Detener el desarrollo en Java puro. Migrar gradualmente a Kotlin. Implementar un patrón de
+         arquitectura MVVM (Model-View-ViewModel) junto con Clean Architecture. Usa Retrofit con Coroutines en lugar de
+         tareas asíncronas antiguas.
+
+  4. Seguridad (Vulnerabilidades Potenciales)
+
+   * Falta de Revocación de Tokens (JWT): Estás generando un token JWT estándar al hacer login. Si baneas a un chofer
+     por mal comportamiento, su token seguirá siendo válido hasta que expire. Un chofer malicioso podría seguir
+     aceptando viajes.
+       * Solución: Implementar un sistema de Refresh Tokens y usar Redis como lista negra (Blacklist) para revocar
+         access tokens comprometidos o de usuarios bloqueados al instante.
+   * Exposición de IDs incrementales: Si PostgreSQL usa IDs secuenciales (1, 2, 3...) para viajes o usuarios, la
+     competencia puede raspar (scrape) tus endpoints y saber exactamente cuántos viajes diarios tienes o la cantidad
+     exacta de usuarios.
+       * Solución: Migrar tus IDs públicos a UUIDv4 o NanoIDs. Los IDs autoincrementales solo deben usarse internamente
+         en las relaciones de BD.
+
+  5. Experiencia de Usuario (UX/UI) y Funciones Faltantes
+
+   * Lógica de Cancelación e Inmediatez: En una app de viajes, el pasajero se desespera a los 15 segundos si no ve
+     interacción. Necesitas un Skeleton Loading en UI mientras los conductores reciben el ping.
+   * Fricción de Registro: Tienes un payload de registro muy extenso (pidiendo hasta la provincia).
+       * Mejora UX: Registro sin fricción. El pasajero solo debe dar su teléfono (con verificación OTP por
+         SMS/WhatsApp). El resto (nombre, foto, correo) se pide después de que solicitó su primer viaje o como paso
+         posterior opcional. No pierdas clientes en el formulario.
+
+  6. Estrategia de Monetización y Crecimiento
+
+  Para diferenciarte de inDrive, Uber o DiDi y hacer que el producto sea financieramente escalable:
+
+   1. Modelo Freemium para Choferes (SaaS B2B): En lugar de (o además de) cobrar el clásico 10-15% por viaje, ofrece una
+      "Suscripción Premium Mensual" para choferes. El chofer paga $15/mes y a cambio no se le cobra comisión por los
+      viajes que realice, o recibe las solicitudes 2 segundos antes que los conductores gratuitos.
+   2. Viajes Interprovinciales Agrupados (Carpooling): Viendo que tu modelo de base de datos maneja
+      "provincias/municipios", la competencia local suele fallar en conectar viajes largos. Puedes implementar un módulo
+      donde el chofer publica una ruta "Ciudad A -> Ciudad B", y los pasajeros reservan un asiento (tipo BlaBlaCar).
+      Esto aumenta drásticamente el valor de uso.
+   3. Monetización por Publicidad Local (Ads): Pantalla de carga o pines patrocinados en el mapa (restaurantes locales o
+      comercios pagando por estar destacados en el mapa del pasajero mientras espera).
+   4. Sistema de Retención (Gamificación): Otorgar "Insignias de Confianza" a conductores y pasajeros con más de 100
+      viajes de 5 estrellas. A los clientes les da seguridad subir con alguien verificado.
+
+  7. Roadmap Técnico y Estratégico (Qué Priorizar)
+
+  Actúa en el siguiente orden para evitar el colapso:
+
+  Fase 1: Preparar para Producción Segura (Esta Semana)
+   1. Refactorizar los Uploads: Mover la carga de imágenes a un servicio Cloud (S3/Firebase). Tu app debe ser stateless.
+   2. Implementar Redis: Para Rate Limiting y para el manejo seguro de tokens (Blacklisting).
+   3. Optimizar Queries: Eliminar el uso de ILIKE en las peticiones de creación de viajes. Forzar a los clientes a
+      mandar IDs y dejar que la API solo valide si existen.
+
+  Fase 2: Retención y Modernización Móvil (Próximos 1-2 meses)
+   1. WebSockets: Reemplazar las peticiones HTTP repetitivas para actualización de GPS y ofertas de viajes por una
+      conexión de Socket bidireccional estable.
+   2. Frenar el "Spaghetti Code" en Android: Todo nuevo feature en Android debe escribirse en Kotlin usando MVVM.
+      Comenzar a desglosar el MainActivity.
+   3. Notificaciones Inteligentes: Mejorar el servicio notificationService.js (FCM) para manejar mensajes silenciosos
+      (data messages) que actualicen la UI de Android sin despertar visualmente el teléfono del usuario si este tiene la
+      app abierta.
+
+  Fase 3: Escalado y Diferenciación (3-6 meses)
+   1. Módulo de Pagos y Billetera Virtual (Wallet): Implementar recargas de saldo para choferes a través de pasarelas
+      locales (pagos por transferencia, QR, tarjetas).
+   2. Analítica Avanzada en el Admin Panel: Integrar un Data Warehouse ligero. Necesitas métricas de: Tasa de aceptación
+      de viajes, Tiempo promedio de aceptación, Tasa de rebote en el login.
+   3. Migración de Capa de Datos: Considerar implementar Prisma ORM para agilizar la creación de los próximos módulos de
+      manera segura y fuertemente tipada.
+
+  Conclusión como CTO
+
+  Tienes una base con gran potencial y el ecosistema está bien separado (API, Admin Panel, App). Sin embargo, la app
+  nativa Android es tu mayor riesgo financiero y técnico actual, seguida de la infraestructura monolítica (archivos
+  locales) del backend Node.js.
+
+  Si quieres que te ayude a refactorizar áreas específicas (por ejemplo, implementar S3 en Node, crear la estructura
+  base en Kotlin MVVM, o plantear el sistema de WebSockets para GPS en tiempo real), dímelo y nos pondremos a programar
+  con arquitectura de clase mundial. ¿Con qué cuello de botella empezamos?

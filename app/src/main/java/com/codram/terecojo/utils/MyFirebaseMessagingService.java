@@ -64,7 +64,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private void updateTokenOnServer(String token) {
         SessionManager sessionManager = SessionManager.getInstance(this);
         if (sessionManager.getToken() != null) {
-            ApiService apiService = RetrofitClient.getService(this);
+            ApiService apiService = RetrofitClient.getService(); // MODIFICADO;
             apiService.updateFcmToken(new FcmTokenRequest(token)).enqueue(new Callback<ApiResponse<Void>>() {
                 @Override
                 public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {

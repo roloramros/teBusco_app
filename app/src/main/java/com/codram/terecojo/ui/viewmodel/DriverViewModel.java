@@ -36,7 +36,7 @@ public class DriverViewModel extends AndroidViewModel {
     public LiveData<Boolean> getOfferSuccess() { return offerSuccess; }
 
     public void fetchMyVehicles() {
-        RetrofitClient.getService(getApplication()).getVehicles().enqueue(new Callback<ApiResponse<List<Vehicle>>>() {
+        RetrofitClient.getService().getVehicles().enqueue(new Callback<ApiResponse<List<Vehicle>>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<List<Vehicle>>> call, Response<ApiResponse<List<Vehicle>>> response) {
                 if (response.isSuccessful() && response.body() != null) {
@@ -52,7 +52,7 @@ public class DriverViewModel extends AndroidViewModel {
     }
 
     public void sendOffer(String solicitudId, OfferRequest request) {
-        RetrofitClient.getService(getApplication()).responderSolicitud(solicitudId, request).enqueue(new Callback<ApiResponse<Offer>>() {
+        RetrofitClient.getService().responderSolicitud(solicitudId, request).enqueue(new Callback<ApiResponse<Offer>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<Offer>> call, Response<ApiResponse<Offer>> response) {
                 if (response.isSuccessful()) {

@@ -37,7 +37,7 @@ public class MainViewModel extends AndroidViewModel {
     public void finalizarViaje(String solicitudId, int estrellas, String comentario) {
         isLoading.postValue(true);
         FinalizeRideRequest request = new FinalizeRideRequest(estrellas, comentario);
-        RetrofitClient.getService(getApplication()).finalizarViaje(solicitudId, request)
+        RetrofitClient.getService().finalizarViaje(solicitudId, request) // MODIFICADO
                 .enqueue(new retrofit2.Callback<ApiResponse<Object>>() {
                     @Override
                     public void onResponse(retrofit2.Call<ApiResponse<Object>> call, retrofit2.Response<ApiResponse<Object>> response) {

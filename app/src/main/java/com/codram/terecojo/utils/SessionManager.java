@@ -84,7 +84,7 @@ public class SessionManager {
         }
 
         // Intentar avisar al servidor para invalidar el token
-        RetrofitClient.getService(context).logout().enqueue(new Callback<ApiResponse<Void>>() {
+        RetrofitClient.getService().logout().enqueue(new Callback<ApiResponse<Void>>() { // MODIFICADO
             @Override
             public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
                 Log.d("TeRecojo", "Sesión cerrada en el servidor");

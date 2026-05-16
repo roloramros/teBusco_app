@@ -269,6 +269,9 @@ export const responderSolicitud = async (req, res, next) => {
         [pasajeroId]
       )
 
+      const token = userRows.length > 0 ? userRows[0].fcm_token : null;
+      console.log(`🔔 Notificando nueva oferta: Pasajero=${pasajeroId}, Token=${token ? 'SÍ' : 'NO'}`);
+
       await sendNotification({
         usuario_id: pasajeroId,
         actor_id: usuarioId,
@@ -276,7 +279,7 @@ export const responderSolicitud = async (req, res, next) => {
         titulo: '💰 ¡Nueva oferta recibida!',
         cuerpo: `Un chofer ha respondido a tu viaje con una oferta de ${precio_propuesto} ${moneda || 'CUP'}`,
         datos_extra: { solicitud_id: solicitud_id.toString() },
-        fcm_token: userRows.length > 0 ? userRows[0].fcm_token : null
+        fcm_token: token
       });
     } catch (notifyErr) {
       console.error('⚠️ Error en proceso de notificación:', notifyErr)
@@ -332,7 +335,7 @@ export const aceptarRespuesta = async (req, res, next) => {
     // 3. Marcar las demás ofertas de la misma solicitud como rechazadas
     // Obtenemos los tokens de los choferes rechazados para notificarles después
     const { rows: rejectedRows } = await client.query(
-      `SELECT u.fcm_token, u.id as usuario_id
+      `SELECT u.fcm_token, u.id as chofer_usuario_id, r.solicitud_id
        FROM respuestas_solicitud r
        JOIN choferes c ON c.id = r.chofer_id
        JOIN usuarios u ON u.id = c.usuario_id
@@ -372,6 +375,8 @@ export const aceptarRespuesta = async (req, res, next) => {
     });
 
     // 6. Notificar a los choferes rechazados
+    // ELIMINADO — reemplazado por parallel notify
+    /*
     if (rejectedRows.length > 0) {
       for (const row of rejectedRows) {
         await sendNotification({
@@ -385,6 +390,22 @@ export const aceptarRespuesta = async (req, res, next) => {
         });
       }
     }
+    */
+
+    // NUEVO — Notificaciones de rechazo en paralelo
+    await Promise.allSettled(
+      rejectedRows.map(row =>
+        sendNotification({
+          usuario_id: row.chofer_usuario_id,
+          actor_id: req.usuario.id,
+          tipo: 'oferta_rechazada',
+          titulo: 'Tu oferta no fue seleccionada',
+          cuerpo: 'El pasajero eligió otra oferta para su viaje.',
+          datos_extra: { solicitud_id: row.solicitud_id },
+          fcm_token: row.fcm_token
+        }).catch(err => console.error('❌ Error notificando rechazo:', err.message))
+      )
+    )
 
     return success(res, null, '¡Viaje confirmado! El chofer ha sido notificado.')
   } catch (err) {

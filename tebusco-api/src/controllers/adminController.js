@@ -1,6 +1,7 @@
 import { query, getClient } from '../config/database.js'
 import { success, badRequest, notFound, forbidden } from '../utils/response.js'
 import { sendNotification } from '../services/notificationService.js'
+import admin from '../config/firebase.js'
 
 export const getStats = async (req, res, next) => {
   try {
@@ -463,6 +464,8 @@ export const broadcastNotification = async (req, res, next) => {
 
     const { rows: usuarios } = await query(`SELECT id, fcm_token FROM usuarios WHERE ${whereClause}`, params)
 
+    // ELIMINADO — reemplazado por batch + multicast
+    /*
     const notifications = usuarios.map(u => 
       sendNotification({
         usuario_id: u.id,
@@ -477,8 +480,55 @@ export const broadcastNotification = async (req, res, next) => {
     
     const enviadas = results.filter(r => r.status === 'fulfilled' && r.value !== null).length
     const fallidas = usuarios.length - enviadas
+    */
 
-    return success(res, { enviadas, fallidas }, 'Broadcast completado')
+    // NUEVO — INSERT batch para broadcast
+    let insertadas = 0
+    if (usuarios.length > 0) {
+      const values = usuarios.map((_, i) =>
+        `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`
+      )
+      const params = usuarios.flatMap(u => [u.id, 'sistema_alerta', titulo, cuerpo])
+      await query(
+        `INSERT INTO notificaciones (usuario_id, tipo, titulo, cuerpo)
+         VALUES ${values.join(', ')}`,
+        params
+      )
+      insertadas = usuarios.length
+    }
+
+    // NUEVO — FCM multicast broadcast con chunks de 500
+    const FCM_CHUNK_SIZE = 500
+    const tokens = usuarios.map(u => u.fcm_token).filter(t => t && t.trim() !== '')
+    let enviadas = 0
+    let fallidas = 0
+
+    if (tokens.length > 0) {
+      const chunks = []
+      for (let i = 0; i < tokens.length; i += FCM_CHUNK_SIZE) {
+        chunks.push(tokens.slice(i, i + FCM_CHUNK_SIZE))
+      }
+      const multicastResults = await Promise.allSettled(
+        chunks.map(chunk =>
+          admin.messaging().sendEachForMulticast({
+            tokens: chunk,
+            notification: { title: titulo, body: cuerpo },
+            android: { priority: 'high', notification: { channelId: 'default_channel_id' } }
+          }).catch(err => {
+            console.error('❌ Error FCM broadcast chunk:', err.message)
+            return { successCount: 0, failureCount: chunk.length }
+          })
+        )
+      )
+      multicastResults.forEach(r => {
+        if (r.status === 'fulfilled' && r.value) {
+          enviadas += r.value.successCount ?? 0
+          fallidas += r.value.failureCount ?? 0
+        }
+      })
+    }
+
+    return success(res, { total: insertadas, enviadas, fallidas }, 'Broadcast completado')
   } catch (err) {
     next(err)
   }
