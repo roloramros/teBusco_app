@@ -46,6 +46,7 @@ export const authenticate = async (req, res, next) => {
     }
 
     // Adjuntar datos del usuario al request para usarlos en controladores
+    req.token = token // NUEVO
     req.usuario = {
       id:          sesion.usuario_id,
       nombre:      sesion.nombre,

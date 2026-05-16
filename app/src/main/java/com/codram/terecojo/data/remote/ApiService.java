@@ -9,7 +9,9 @@ import com.codram.terecojo.data.model.MunicipalityResponse;
 import com.codram.terecojo.data.model.Notification;
 import com.codram.terecojo.data.model.Province;
 import com.codram.terecojo.data.model.RegisterRequest;
+import com.codram.terecojo.data.model.RevocarTodasResponse;
 import com.codram.terecojo.data.model.RideRequest;
+import com.codram.terecojo.data.model.SesionActiva;
 import com.codram.terecojo.data.model.Offer;
 import com.codram.terecojo.data.model.OfferRequest;
 import com.codram.terecojo.data.model.StatsResponse;
@@ -143,4 +145,14 @@ public interface ApiService {
 
     @DELETE("api/notificaciones")
     Call<ApiResponse<Void>> deleteAllNotifications();
+
+    // NUEVO — Gestión de sesiones
+    @GET("api/auth/sesiones")
+    Call<ApiResponse<List<SesionActiva>>> getMisSesiones();
+
+    @DELETE("api/auth/sesiones/{id}")
+    Call<ApiResponse<Void>> revocarSesion(@Path("id") String sesionId);
+
+    @DELETE("api/auth/sesiones")
+    Call<ApiResponse<RevocarTodasResponse>> revocarTodasLasSesiones();
 }

@@ -64,7 +64,7 @@ public class MyRequestsAdapter extends RecyclerView.Adapter<MyRequestsAdapter.Vi
             holder.btnViewOffers.setVisibility(View.GONE);
             holder.layoutActiveActions.setVisibility(View.GONE);
             holder.layoutInProgressActions.setVisibility(View.VISIBLE);
-        } else if ("completada".equals(request.getEstado()) || "cancelada".equals(request.getEstado())) {
+        } else if ("completada".equals(request.getEstado()) || "cancelada".equals(request.getEstado()) || "expirada".equals(request.getEstado())) {
             holder.btnViewOffers.setVisibility(View.GONE);
             holder.layoutActiveActions.setVisibility(View.GONE);
             holder.layoutInProgressActions.setVisibility(View.GONE);

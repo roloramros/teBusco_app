@@ -5,7 +5,10 @@ import {
   login, 
   logout, 
   me, 
-  updateFcmToken 
+  updateFcmToken,
+  getMisSesiones,
+  revocarSesion,
+  revocarTodasLasSesiones 
 } from '../controllers/authController.js'
 import { authenticate } from '../middleware/auth.js'
 import { validar } from '../middleware/validar.js'
@@ -86,5 +89,10 @@ router.get('/me', authenticate, me)
 
 // POST /api/auth/update-fcm-token
 router.post('/update-fcm-token', authenticate, updateFcmToken)
+
+// NUEVO — Gestión de sesiones
+router.get('/sesiones', authenticate, getMisSesiones)
+router.delete('/sesiones/:id', authenticate, revocarSesion)
+router.delete('/sesiones', authenticate, revocarTodasLasSesiones)
 
 export default router

@@ -66,8 +66,8 @@ export const createSolicitud = async (req, res, next) => {
       resolved_destino_municipio_id = mId;
     }
 
-    // Forzar precio a 0 para nuevas solicitudes (basado en el nuevo flujo de ofertas)
-    precio_oferta = 0;
+    // Usar el precio enviado o 0 si no viene (MODIFICADO)
+    precio_oferta = precio_oferta || 0;
 
     // Normalizar moneda: debe ser un arreglo de strings en mayúsculas
     if (!Array.isArray(moneda) || moneda.length === 0) {
@@ -237,6 +237,11 @@ export const responderSolicitud = async (req, res, next) => {
       return notFound(res, 'La solicitud no existe o ya no está activa')
     }
     const { pasajero_id: pasajeroId } = solRows[0]
+
+    // NUEVO
+    if (pasajeroId === usuarioId) {
+      return forbidden(res, 'No puedes ofertar en tu propia solicitud')
+    }
 
     // 3. Crear la respuesta/oferta
     const { rows: respRows } = await query(

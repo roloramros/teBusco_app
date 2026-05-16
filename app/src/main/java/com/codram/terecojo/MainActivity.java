@@ -256,11 +256,22 @@ public class MainActivity extends BaseActivity {
             EditText etPassengers = dialogView.findViewById(R.id.etPassengers);
             EditText etCargo = dialogView.findViewById(R.id.etCargoType);
             EditText etObs = dialogView.findViewById(R.id.etObservations);
+            // NUEVO
+            EditText etOfferPrice = dialogView.findViewById(R.id.etOfferPrice);
             com.google.android.material.chip.ChipGroup cgCurrencies = dialogView.findViewById(R.id.cgCurrencies);
 
             String passengers = etPassengers.getText().toString();
             String cargo = etCargo.getText().toString();
             String obs = etObs.getText().toString();
+            // NUEVO
+            String offerPriceStr = etOfferPrice.getText().toString().trim();
+            double offerPrice = 0.0;
+            try {
+                if (!offerPriceStr.isEmpty()) offerPrice = Double.parseDouble(offerPriceStr);
+            } catch (NumberFormatException e) {
+                offerPrice = 0.0;
+            }
+
             boolean isInmediato = rgDateTime.getCheckedRadioButtonId() == R.id.rbNow;
             String fechaViaje = null;
 
@@ -283,31 +294,34 @@ public class MainActivity extends BaseActivity {
                 return;
             }
 
-            executeFinalPublish(passengers, cargo, obs, selectedCurrencies, isInmediato, fechaViaje, dialog);
+            executeFinalPublish(passengers, cargo, obs, selectedCurrencies, isInmediato, fechaViaje, dialog, offerPrice);
         });
 
         dialog.show();
     }
 
-    private void executeFinalPublish(String passengers, String cargo, String obs, List<String> currencies, boolean isInmediato, String fechaViaje, androidx.appcompat.app.AlertDialog dialog) {
+    // MODIFICADO
+    private void executeFinalPublish(String passengers, String cargo, String obs, List<String> currencies, boolean isInmediato, String fechaViaje, androidx.appcompat.app.AlertDialog dialog, double offerPrice) {
         if (lastCalculatedDistance <= 0) {
             Toast.makeText(this, "Calculando ruta final...", Toast.LENGTH_SHORT).show();
-            calculateRoadDistance(() -> performApiPublish(passengers, cargo, obs, currencies, isInmediato, fechaViaje, dialog));
+            calculateRoadDistance(() -> performApiPublish(passengers, cargo, obs, currencies, isInmediato, fechaViaje, dialog, offerPrice));
         } else {
-            performApiPublish(passengers, cargo, obs, currencies, isInmediato, fechaViaje, dialog);
+            performApiPublish(passengers, cargo, obs, currencies, isInmediato, fechaViaje, dialog, offerPrice);
         }
     }
 
-    private void performApiPublish(String passengers, String cargo, String obs, List<String> currencies, boolean isInmediato, String fechaViaje, androidx.appcompat.app.AlertDialog dialog) {
+    // MODIFICADO
+    private void performApiPublish(String passengers, String cargo, String obs, List<String> currencies, boolean isInmediato, String fechaViaje, androidx.appcompat.app.AlertDialog dialog, double offerPrice) {
         if (originMunicipality == null || originMunicipality.isEmpty() || originProvince == null || originProvince.isEmpty()) {
-            showManualLocationDialog(passengers, cargo, obs, currencies, isInmediato, fechaViaje, dialog);
+            showManualLocationDialog(passengers, cargo, obs, currencies, isInmediato, fechaViaje, dialog, offerPrice);
             return;
         }
         
-        sendSolicitudToApi(passengers, cargo, obs, currencies, isInmediato, fechaViaje, dialog);
+        sendSolicitudToApi(passengers, cargo, obs, currencies, isInmediato, fechaViaje, dialog, offerPrice);
     }
 
-    private void showManualLocationDialog(String passengers, String cargo, String obs, List<String> currencies, boolean isInmediato, String fechaViaje, androidx.appcompat.app.AlertDialog dialog) {
+    // MODIFICADO
+    private void showManualLocationDialog(String passengers, String cargo, String obs, List<String> currencies, boolean isInmediato, String fechaViaje, androidx.appcompat.app.AlertDialog dialog, double offerPrice) {
         android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
         layout.setOrientation(android.widget.LinearLayout.VERTICAL);
         layout.setPadding(48, 24, 48, 24);
@@ -385,7 +399,7 @@ public class MainActivity extends BaseActivity {
                 originProvince = provinces[0].get(provIdx - 1).getName();
                 originMunicipality = municipalities[0].get(munIdx - 1).getName();
                 // Opcional: también podríamos setear el ID directamente para ahorrar trabajo al backend
-                sendSolicitudToApi(passengers, cargo, obs, currencies, isInmediato, fechaViaje, dialog);
+                sendSolicitudToApi(passengers, cargo, obs, currencies, isInmediato, fechaViaje, dialog, offerPrice);
             } else {
                 Toast.makeText(this, "Debes seleccionar tu ubicación", Toast.LENGTH_SHORT).show();
             }
@@ -394,7 +408,7 @@ public class MainActivity extends BaseActivity {
         builder.show();
     }
 
-    private void sendSolicitudToApi(String passengers, String cargo, String obs, List<String> currencies, boolean isInmediato, String fechaViaje, androidx.appcompat.app.AlertDialog dialog) {
+    private void sendSolicitudToApi(String passengers, String cargo, String obs, List<String> currencies, boolean isInmediato, String fechaViaje, androidx.appcompat.app.AlertDialog dialog, double offerPrice) {
         String originDesc = binding.etOrigin.getText().toString().trim();
         String destinationDesc = binding.etDestination.getText().toString().trim();
 
@@ -414,7 +428,8 @@ public class MainActivity extends BaseActivity {
         request.setTipoCarga(cargo);
         request.setDescripcion(obs);
         request.setMoneda(currencies);
-        request.setPrecioOferta(0.0);
+        // MODIFICADO
+        request.setPrecioOferta(offerPrice);
         request.setEsInmediato(isInmediato);
         request.setFechaViaje(fechaViaje);
         request.setDistancia(lastCalculatedDistance);

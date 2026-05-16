@@ -227,6 +227,29 @@ export const login = async (req, res) => {
 
   const dispositivo = (req.headers['user-agent'] || 'desconocido').substring(0, 255)
 
+  // NUEVO — Limpiar sesiones vencidas del usuario
+  await query(
+    'DELETE FROM sesiones WHERE usuario_id = $1 AND expira_en < NOW()',
+    [usuario.id]
+  )
+
+  // NUEVO — Contar sesiones activas
+  const { rows: activeSessions } = await query(
+    'SELECT id FROM sesiones WHERE usuario_id = $1 ORDER BY creado_en ASC',
+    [usuario.id]
+  )
+
+  // NUEVO — Límite de 3 sesiones activas simultáneas
+  const MAX_SESSIONS = 3
+  if (activeSessions.length >= MAX_SESSIONS) {
+    const toDelete = activeSessions.slice(0, activeSessions.length - (MAX_SESSIONS - 1))
+    const idsToDelete = toDelete.map(s => s.id)
+    await query(
+      'DELETE FROM sesiones WHERE id = ANY($1)',
+      [idsToDelete]
+    )
+  }
+
   await query(
     `INSERT INTO sesiones (usuario_id, token, dispositivo, expira_en)
      VALUES ($1, $2, $3, $4)`,
@@ -366,5 +389,52 @@ export const updateFcmToken = async (req, res) => {
   } catch (error) {
     console.error('❌ Error actualizando FCM Token:', error.message)
     throw error
+  }
+}
+
+// NUEVO
+export const getMisSesiones = async (req, res) => {
+  try {
+    const { rows } = await query(
+      `SELECT id, creado_en, expira_en,
+              (token = $2) AS es_sesion_actual
+       FROM sesiones
+       WHERE usuario_id = $1 AND expira_en > NOW()
+       ORDER BY creado_en DESC`,
+      [req.usuario.id, req.token]
+    )
+    return response.success(res, rows)
+  } catch (err) {
+    return response.error(res, 'Error obteniendo sesiones', 500)
+  }
+}
+
+// NUEVO
+export const revocarSesion = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { rows } = await query(
+      'SELECT id, token FROM sesiones WHERE id = $1 AND usuario_id = $2',
+      [id, req.usuario.id]
+    )
+    if (rows.length === 0) return response.notFound(res, 'Sesión no encontrada')
+    if (rows[0].token === req.token) return response.error(res, 'No puedes revocar tu sesión actual. Usa el endpoint de logout.', 400)
+    await query('DELETE FROM sesiones WHERE id = $1', [id])
+    return response.success(res, null, 'Sesión revocada correctamente')
+  } catch (err) {
+    return response.error(res, 'Error revocando sesión', 500)
+  }
+}
+
+// NUEVO
+export const revocarTodasLasSesiones = async (req, res) => {
+  try {
+    const { rowCount } = await query(
+      'DELETE FROM sesiones WHERE usuario_id = $1 AND token != $2',
+      [req.usuario.id, req.token]
+    )
+    return response.success(res, { sesiones_cerradas: rowCount }, 'Todas las sesiones cerradas excepto la actual')
+  } catch (err) {
+    return response.error(res, 'Error revocando sesiones', 500)
   }
 }
