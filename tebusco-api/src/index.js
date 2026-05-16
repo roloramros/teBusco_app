@@ -13,6 +13,8 @@ import solicitudRoutes from './routes/solicitud.js'
 import notificationRoutes from './routes/notification.js'
 import adminRoutes from './routes/admin.js'
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
+// NUEVO
+import { startExpireSolicitudesJob } from './jobs/expireSolicitudes.js'
 
 const app  = express()
 const PORT = process.env.PORT || 3000
@@ -119,6 +121,9 @@ const startServer = async () => {
       console.log(`\n🚖  Te Busco API`)
       console.log(`🌐  Corriendo en http://localhost:${PORT}`)
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`)
+
+      // NUEVO
+      startExpireSolicitudesJob()
     }).on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
         console.error(`❌ El puerto ${PORT} ya está en uso`)

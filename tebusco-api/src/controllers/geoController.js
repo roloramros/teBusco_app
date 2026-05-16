@@ -1,6 +1,24 @@
 import { query } from '../config/database.js'
 import * as res from '../utils/response.js'
 
+// NUEVO — Caché en memoria para datos geo-estáticos
+const geoCache = new Map()
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 horas
+
+function getCached(key) {
+    const entry = geoCache.get(key)
+    if (!entry) return null
+    if (Date.now() - entry.savedAt > CACHE_TTL_MS) {
+        geoCache.delete(key)
+        return null
+    }
+    return entry.data
+}
+
+function setCache(key, data) {
+    geoCache.set(key, { data, savedAt: Date.now() })
+}
+
 // ─────────────────────────────────────────────────────────
 // GET /api/geo/provincias
 // Devuelve todas las provincias activas
@@ -8,6 +26,10 @@ import * as res from '../utils/response.js'
 export const getProvincias = async (req, reply) => {
   console.log('--- GET /api/geo/provincias ---')
   try {
+    // NUEVO — Intentar servir desde caché
+    const cached = getCached('provincias')
+    if (cached) return res.success(reply, cached)
+
     const { rows } = await query(
       `SELECT id, nombre, codigo
        FROM provincias
@@ -15,6 +37,10 @@ export const getProvincias = async (req, reply) => {
        ORDER BY nombre ASC`
     )
     console.log(`✅ Provincias cargadas: ${rows.length}`)
+
+    // NUEVO — Guardar en caché
+    setCache('provincias', rows)
+
     return res.success(reply, rows)
   } catch (error) {
     console.error('❌ Error en getProvincias:', error.message)
@@ -34,6 +60,11 @@ export const getMunicipiosByProvincia = async (req, reply) => {
     return res.badRequest(reply, 'ID de provincia inválido')
   }
 
+  // NUEVO — Intentar servir desde caché
+  const cacheKey = `municipios_${id}`
+  const cached = getCached(cacheKey)
+  if (cached) return res.success(reply, cached)
+
   // Verificar que la provincia existe
   const { rows: prov } = await query(
     'SELECT id, nombre FROM provincias WHERE id = $1 AND activa = true',
@@ -52,10 +83,15 @@ export const getMunicipiosByProvincia = async (req, reply) => {
     [provinciaId]
   )
 
-  return res.success(reply, {
+  const result = {
     provincia: prov[0],
     municipios: rows,
-  })
+  }
+
+  // NUEVO — Guardar en caché
+  setCache(cacheKey, result)
+
+  return res.success(reply, result)
 }
 
 // ─────────────────────────────────────────────────────────
