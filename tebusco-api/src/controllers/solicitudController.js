@@ -109,18 +109,18 @@ export const createSolicitud = async (req, res, next) => {
     const nuevaSolicitud = rows[0]
 
     // ─────────────────────────────────────────────────────────
-    // NOTIFICACIÓN (Choferes del municipio)
+    // NOTIFICACIÓN (Choferes de la provincia)
     // ─────────────────────────────────────────────────────────
     if (process.env.NODE_ENV !== 'development') {
-      const target_municipio_id = resolved_origen_municipio_id;
-      if (target_municipio_id) {
+      const target_provincia_id = resolved_origen_provincia_id;
+      if (target_provincia_id) {
         await sendNotification({
-          usuario_id: null, // No hay un receptor único, es por tema
+          usuario_id: null,
           tipo: 'nueva_solicitud',
           titulo: '🚕 ¡Nueva solicitud de viaje!',
           cuerpo: `${pasajeroNombre} busca viaje desde ${origen_descripcion} hasta ${destino_descripcion}`,
           datos_extra: { solicitud_id: nuevaSolicitud.id.toString() },
-          topic: `municipio_${target_municipio_id}`
+          topic: `provincia_${target_provincia_id}`
         });
       }
     }
