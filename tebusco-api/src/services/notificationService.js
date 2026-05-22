@@ -132,7 +132,7 @@ export const sendNotification = async ({
               )
             }
           } else {
-            // Soporte para otros tópicos no municipio_ (envío normal)
+            // Soporte para otros tópicos no provincia_ (envío normal)
             message.topic = topic
             // MODIFICADO — Añadido await
             await admin.messaging().send(message)
