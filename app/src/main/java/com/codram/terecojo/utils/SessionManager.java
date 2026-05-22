@@ -73,8 +73,8 @@ public class SessionManager {
     public void logout(Context context) {
         // Desuscribir de notificaciones si es chofer
         AuthResponse.User user = getUser();
-        if (user != null && "chofer".equalsIgnoreCase(user.getTipo()) && user.getMunicipio_id() != null) {
-            String topic = "municipio_" + user.getMunicipio_id();
+        if (user != null && "chofer".equalsIgnoreCase(user.getTipo()) && user.getProvincia_id() != null) {
+            String topic = "provincia_" + user.getProvincia_id();
             com.google.firebase.messaging.FirebaseMessaging.getInstance().unsubscribeFromTopic(topic)
                     .addOnCompleteListener(task -> {
                         if (task.isSuccessful()) {
