@@ -18,14 +18,14 @@ export const sendNotification = async ({
     let lastNotifId = null;
 
     // 1. Persistencia en Base de Datos
-    if (topic && topic.startsWith('municipio_')) {
-      // Si es un tópico de municipio, persistir para TODOS los choferes de ese municipio
-      const municipioId = topic.replace('municipio_', '');
+    if (topic && topic.startsWith('provincia_')) {
+      // Si es un tópico de provincia, persistir para TODOS los choferes de esa provincia
+      const provinciaId = topic.replace('provincia_', '');
       
-      // Obtener todos los IDs de usuario que son choferes en ese municipio
+      // Obtener todos los IDs de usuario que son choferes en esa provincia
       const { rows: users } = await query(
-        `SELECT usuario_id FROM choferes WHERE municipio_base_id = $1`,
-        [municipioId]
+        `SELECT usuario_id FROM choferes WHERE provincia_base_id = $1`,
+        [provinciaId]
       );
 
       // NUEVO — INSERT batch: una sola query para todos los usuarios
@@ -100,16 +100,16 @@ export const sendNotification = async ({
       console.log(`📦 Payload FCM: ${JSON.stringify(message.notification)} | Data: ${JSON.stringify(message.data)}`);
 
       if (topic) {
-        // NUEVO — FCM multicast con chunks de 500 (límite Firebase)
+        // NUEVO — FCM multicast con chunks of 500 (límite Firebase)
         try {
-          if (topic.startsWith('municipio_')) {
-            const municipioId = topic.replace('municipio_', '');
+          if (topic.startsWith('provincia_')) {
+            const provinciaId = topic.replace('provincia_', '');
             const FCM_CHUNK_SIZE = 500
             const { rows: usersWithTokens } = await query(
               `SELECT u.fcm_token FROM choferes c
                JOIN usuarios u ON u.id = c.usuario_id
-               WHERE c.municipio_base_id = $1 AND u.fcm_token IS NOT NULL AND u.fcm_token != ''`,
-              [municipioId]
+               WHERE c.provincia_base_id = $1 AND u.fcm_token IS NOT NULL AND u.fcm_token != ''`,
+              [provinciaId]
             )
             const tokens = usersWithTokens.map(u => u.fcm_token)
 
@@ -127,7 +127,7 @@ export const sendNotification = async ({
                 chunks.map(chunk =>
                   admin.messaging().sendEachForMulticast({ ...multicastMessage, tokens: chunk })
                     .then(r => console.log(`✅ FCM multicast: ${r.successCount} enviados, ${r.failureCount} fallidos`))
-                    .catch(err => console.error('❌ Error FCM multicast municipio:', err.message))
+                    .catch(err => console.error('❌ Error FCM multicast provincia:', err.message))
                 )
               )
             }
