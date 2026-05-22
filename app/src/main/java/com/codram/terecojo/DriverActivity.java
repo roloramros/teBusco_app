@@ -2,6 +2,7 @@ package com.codram.terecojo;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
 
@@ -73,6 +74,14 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
 
         processAutoRouteIntent(getIntent()); // NUEVO
         viewModel.fetchMyVehicles();
+
+        // Nueva lógica de suscripción proactiva
+        AuthResponse.User user = SessionManager.getInstance(this).getUser();
+        if (user != null && "chofer".equalsIgnoreCase(user.getTipo()) && user.getProvincia_id() != null) {
+            String topic = "provincia_" + user.getProvincia_id();
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().subscribeToTopic(topic);
+            Log.d("FCM", "Suscripción proactiva al tema: " + topic);
+        }
     }
 
     private void processAutoRouteIntent(Intent intent) { // NUEVO
