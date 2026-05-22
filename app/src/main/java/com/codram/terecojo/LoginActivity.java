@@ -151,9 +151,9 @@ public class LoginActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null && response.body().isOk()) {
                     AuthResponse auth = response.body().getData();
                     
-                    // Si es chofer, suscribirlo a su municipio
-                    if (auth.getUser().getTipo().equalsIgnoreCase("chofer") && auth.getUser().getMunicipio_id() != null) {
-                        String topic = "municipio_" + auth.getUser().getMunicipio_id();
+                    // Si es chofer, suscribirlo a su provincia
+                    if (auth.getUser().getTipo().equalsIgnoreCase("chofer") && auth.getUser().getProvincia_id() != null) {
+                        String topic = "provincia_" + auth.getUser().getProvincia_id();
                         FirebaseMessaging.getInstance().subscribeToTopic(topic);
                         Log.d("FCM", "Suscrito al tema: " + topic);
                     }
