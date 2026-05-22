@@ -415,12 +415,6 @@ export const getSolicitudes = async (req, res, next) => {
       params.push(estado)
     }
 
-    // Si el administrador tiene un municipio asignado, filtrar por él
-    if (req.usuario.municipio_id) {
-      whereClauses.push(`s.origen_municipio_id = $${params.length + 1}`)
-      params.push(req.usuario.municipio_id)
-    }
-
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
 
     const sql = `

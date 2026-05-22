@@ -136,14 +136,19 @@ export const createSolicitud = async (req, res, next) => {
  */
 export const getTodasSolicitudesActivas = async (req, res, next) => {
   try {
-    const { id: usuarioId, municipio_id } = req.usuario;
+    const { id: usuarioId } = req.usuario;
 
-    // 1. Obtener el ID de chofer del usuario actual
+    // 1. Obtener el ID de chofer y su provincia base
     const { rows: choferRows } = await query(
-      'SELECT id FROM choferes WHERE usuario_id = $1',
+      'SELECT id, provincia_base_id FROM choferes WHERE usuario_id = $1',
       [usuarioId]
     )
-    const choferId = choferRows.length > 0 ? choferRows[0].id : null;
+    
+    if (choferRows.length === 0 || !choferRows[0].provincia_base_id) {
+      return success(res, [])
+    }
+
+    const { id: choferId, provincia_base_id } = choferRows[0];
 
     let sql = `
       SELECT v.*, 
@@ -151,15 +156,9 @@ export const getTodasSolicitudesActivas = async (req, res, next) => {
       FROM v_solicitudes v
       JOIN solicitudes s ON s.id = v.id
       LEFT JOIN respuestas_solicitud r ON r.solicitud_id = v.id AND r.chofer_id = $1 AND r.estado != 'rechazado'
-      WHERE v.estado = 'activa'
+      WHERE v.estado = 'activa' AND v.origen_provincia_id = $2
     `;
-    let params = [choferId];
-
-    // Filtrar por municipio del chofer si lo tiene asignado
-    if (municipio_id) {
-      sql += ` AND s.origen_municipio_id = $${params.length + 1}`;
-      params.push(municipio_id);
-    }
+    let params = [choferId, provincia_base_id];
 
     sql += ` ORDER BY v.creada_en DESC`;
 

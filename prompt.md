@@ -1,104 +1,55 @@
-Eres un desarrollador Android senior experto en Java. Vas a refactorizar RetrofitClient.java para corregir tres problemas: el singleton no sincronizado, la creación repetida de ApiService por reflection en cada llamada, y el contexto variable que puede causar memory leaks. No modifiques ninguna lógica existente fuera de este archivo salvo lo indicado explícitamente.
+Aquí tienes el prompt completo y actualizado:
 
-Contexto
+---
 
-RetrofitClient.java tiene un singleton lazy private static Retrofit retrofit = null no sincronizado.
-getService(Context context) recibe un Context en cada llamada y llama a retrofit.create(ApiService.class) en cada invocación, creando un nuevo proxy por reflection cada vez.
-El token JWT se lee dinámicamente en cada request a través de un Interceptor que accede a SessionManager. Esa lógica es correcta y no debe tocarse.
-Todas las llamadas a RetrofitClient.getService(context) en el proyecto pasan this o getContext() desde una Activity o Fragment.
+**Contexto del proyecto:**
+Tengo una app de transporte llamada "Te Busco" compuesta por una API REST (Node.js/Express + PostgreSQL) y una app Android (Java). Los choferes actualmente ven y reciben notificaciones solo de solicitudes de su municipio. Necesito ampliar eso a nivel de provincia.
 
+**Cambio requerido:**
+Modificar el sistema para que los choferes vean todas las solicitudes activas de su provincia, reciban notificaciones push de nuevas solicitudes en toda su provincia, y esas notificaciones también se persistan en la tabla `notificaciones` para que sean visibles en el panel de notificaciones de la app.
 
-Cambios a implementar
-1. Convertir el singleton a inicialización con Application context
-Añadir un método estático de inicialización init(Context context) que debe llamarse una sola vez desde Application.onCreate():
-java// NUEVO
-public static void init(Context context) {
-    if (appContext == null) {
-        appContext = context.getApplicationContext();
-    }
-}
-Añadir el campo estático privado:
-java// NUEVO
-private static Context appContext = null;
-Esto garantiza que siempre se use Application context — nunca un Activity context — eliminando el riesgo de memory leak.
-2. Aplicar double-checked locking con volatile
-Reemplazar:
-javaprivate static Retrofit retrofit = null;
-Por:
-java// MODIFICADO — volatile garantiza visibilidad entre hilos
-private static volatile Retrofit retrofit = null;
-private static volatile ApiService apiService = null;
-3. Crear ApiService una sola vez junto al singleton
-Reemplazar el método getService(Context context) completo por:
-java// MODIFICADO
-public static ApiService getService() {
-    if (apiService == null) {
-        synchronized (RetrofitClient.class) {
-            if (apiService == null) {
-                if (appContext == null) {
-                    throw new IllegalStateException(
-                        "RetrofitClient no inicializado. Llama a RetrofitClient.init(context) en Application.onCreate()"
-                    );
-                }
-                HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
-                logging.setLevel(BuildConfig.DEBUG
-                    ? HttpLoggingInterceptor.Level.BODY
-                    : HttpLoggingInterceptor.Level.NONE);
+**Archivos a modificar:**
 
-                OkHttpClient client = new OkHttpClient.Builder()
-                    .addInterceptor(chain -> {
-                        // El token se lee en cada request — correcto, no cachear
-                        SessionManager session = new SessionManager(appContext);
-                        String token = session.getToken();
-                        okhttp3.Request request = chain.request().newBuilder()
-                            .addHeader("Authorization", token != null ? "Bearer " + token : "")
-                            .build();
-                        return chain.proceed(request);
-                    })
-                    .addInterceptor(logging)
-                    .build();
+**1. `tebusco-api/src/controllers/solicitudController.js` — función `getTodasSolicitudesActivas`**
 
-                retrofit = new Retrofit.Builder()
-                    .baseUrl(BASE_URL)
-                    .client(client)
-                    .addConverterFactory(GsonConverterFactory.create())
-                    .build();
+Actualmente obtiene solo el `id` del chofer desde la tabla `choferes`. Debe también obtener `provincia_base_id`. Luego agregar un filtro `WHERE origen_provincia_id = [provincia_base_id del chofer]` a la query que consulta `v_solicitudes`. Si el chofer no tiene `provincia_base_id` definido, devolver array vacío.
 
-                apiService = retrofit.create(ApiService.class);
-            }
-        }
-    }
-    return apiService;
-}
-4. Crear la clase Application si no existe
-Si el proyecto no tiene una clase que extienda Application, crear TeBuscoApp.java en el paquete raíz:
-java// NUEVO
-public class TeBuscoApp extends Application {
-    @Override
-    public void onCreate() {
-        super.onCreate();
-        RetrofitClient.init(this);
-    }
-}
-Y registrarla en AndroidManifest.xml dentro del tag <application>:
-xml<!-- NUEVO -->
-android:name=".TeBuscoApp"
-Si ya existe una clase Application en el proyecto, añadir RetrofitClient.init(this) al inicio de su onCreate() en lugar de crear una nueva.
-5. Actualizar todas las llamadas a getService
-Buscar en todo el proyecto todas las ocurrencias de:
-javaRetrofitClient.getService(context)
-RetrofitClient.getService(this)
-RetrofitClient.getService(getContext())
-RetrofitClient.getService(getActivity())
-Y reemplazarlas todas por:
-javaRetrofitClient.getService() // MODIFICADO
-Sin ningún parámetro. Esta búsqueda debe hacerse en todos los archivos .java del proyecto, no solo en los que conozcas de antemano.
+**2. `tebusco-api/src/controllers/solicitudController.js` — función `createSolicitud`, bloque de notificaciones**
 
-Restricciones estrictas
+Actualmente construye el topic como `` `municipio_${target_municipio_id}` `` y usa `resolved_origen_municipio_id` como target. Cambiar para que use `resolved_origen_provincia_id` y el topic sea `` `provincia_${resolved_origen_provincia_id}` ``. Si `resolved_origen_provincia_id` es null, no enviar notificación.
 
-El token JWT debe seguir leyéndose dinámicamente en cada request dentro del interceptor usando new SessionManager(appContext). Nunca cachear el token en un campo estático — debe leerse fresco en cada llamada para reflejar cambios de sesión.
-No modificar SessionManager.java ni ApiService.java.
-No modificar la BASE_URL ni la configuración de GsonConverterFactory.
-El IllegalStateException en getService() actúa como red de seguridad para detectar en desarrollo si init() no fue llamado. No eliminarlo.
-Si el proyecto ya tiene una clase Application registrada en el Manifest, no crear TeBuscoApp.java — solo añadir RetrofitClient.init(this) a la existente.
-Marcar cada cambio con // NUEVO o // MODIFICADO según corresponda.
+**3. `tebusco-api/src/services/notificationService.js` — bloque de persistencia en base de datos para topics**
+
+Actualmente el bloque de persistencia tiene esta condición:
+```javascript
+if (topic && topic.startsWith('municipio_')) {
+```
+Que extrae el ID así:
+```javascript
+const municipioId = topic.replace('municipio_', '');
+```
+Y consulta choferes así:
+```javascript
+SELECT usuario_id FROM choferes WHERE municipio_base_id = $1
+```
+
+Debe cambiarse para manejar el nuevo topic de provincia. La condición pasa a ser `topic.startsWith('provincia_')`, el ID se extrae con `topic.replace('provincia_', '')`, y la query de choferes cambia a `WHERE provincia_base_id = $1`. No tocar el bloque `else if (usuario_id)` que maneja persistencia individual.
+
+**4. `app/src/main/java/com/codram/terecojo/LoginActivity.java` — bloque de suscripción FCM post-login (línea ~158)**
+
+Actualmente suscribe al chofer a `` `municipio_` + auth.getUser().getMunicipio_id() ``. Cambiar a `` `provincia_` + auth.getUser().getProvincia_id() ``. El campo `getProvincia_id()` ya existe en el modelo `AuthResponse.User`.
+
+**5. `app/src/main/java/com/codram/terecojo/utils/SessionManager.java` — método `logout`, bloque de desuscripción FCM (línea ~63)**
+
+Actualmente desuscribe del topic `` `municipio_` + user.getMunicipio_id() ``. Cambiar a `` `provincia_` + user.getProvincia_id() ``.
+
+**6. `app/src/main/java/com/codram/terecojo/DriverActivity.java` — método `onCreate`, después de `viewModel.fetchMyVehicles()`**
+
+Agregar lógica de suscripción al topic de provincia al arrancar la actividad. Obtener el usuario desde `SessionManager.getInstance(this).getUser()`. Si el usuario no es null, su tipo es `"chofer"` y `getProvincia_id()` no es null, suscribir a `` `provincia_` + user.getProvincia_id() `` usando `FirebaseMessaging.getInstance().subscribeToTopic(topic)`. Agregar log con tag `"FCM"` indicando el topic al que se suscribió. Esto actúa como mecanismo de recuperación para choferes que ya tienen la app instalada y no han vuelto a hacer login desde el cambio.
+
+**Restricciones:**
+- No cambiar ningún otro comportamiento existente.
+- No modificar la estructura de la tabla ni el modelo de datos.
+- Mantener el estilo de código existente en cada archivo.
+- Los logs en Android deben usar el tag `"FCM"` igual que los existentes.
+- En la API, si algún ID necesario es null, fallar silenciosamente — no lanzar error, simplemente no enviar notificación o devolver array vacío según el caso.
