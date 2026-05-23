@@ -78,13 +78,19 @@ export const createSolicitud = async (req, res, next) => {
     };
 
     if (origen_municipio_nombre) {
-      const { pId, mId } = await resolverUbicacion(origen_provincia_nombre, origen_municipio_nombre);
+      const { pId, mId } = await resolverUbicacion(
+        normalizarNombre(origen_provincia_nombre),
+        normalizarNombre(origen_municipio_nombre)
+      );
       resolved_origen_provincia_id = pId;
       resolved_origen_municipio_id = mId || resolved_origen_municipio_id;
     }
 
     if (destino_municipio_nombre) {
-      const { pId, mId } = await resolverUbicacion(destino_provincia_nombre, destino_municipio_nombre);
+      const { pId, mId } = await resolverUbicacion(
+        normalizarNombre(destino_provincia_nombre),
+        normalizarNombre(destino_municipio_nombre)
+      );
       resolved_destino_provincia_id = pId;
       resolved_destino_municipio_id = mId;
     }
