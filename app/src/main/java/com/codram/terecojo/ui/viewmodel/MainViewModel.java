@@ -82,7 +82,7 @@ public class MainViewModel extends AndroidViewModel {
 
             @Override
             public void onError(String error) {
-                errorMessage.postValue(error);
+                distanceResult.postValue(0.0);
                 isLoading.postValue(false);
             }
         });

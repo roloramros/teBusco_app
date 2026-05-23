@@ -312,6 +312,7 @@ public class MainActivity extends BaseActivity {
 
     // MODIFICADO
     private void performApiPublish(String passengers, String cargo, String obs, List<String> currencies, boolean isInmediato, String fechaViaje, androidx.appcompat.app.AlertDialog dialog, double offerPrice) {
+        Log.d("DEBUG_PUBLISH", "originProvince='" + originProvince + "' originMunicipality='" + originMunicipality + "'");
         if (originMunicipality == null || originMunicipality.isEmpty() || originProvince == null || originProvince.isEmpty()) {
             showManualLocationDialog(passengers, cargo, obs, currencies, isInmediato, fechaViaje, dialog, offerPrice);
             return;
@@ -440,10 +441,10 @@ public class MainActivity extends BaseActivity {
         request.setDestinoMunicipioNombre(destMunicipality);
 
         // Por ahora usamos el municipio del usuario como origen para las notificaciones
-        AuthResponse.User currentUser = SessionManager.getInstance(this).getUser();
-        if (currentUser != null && currentUser.getMunicipio_id() != null) {
-            request.setOrigenMunicipioId(currentUser.getMunicipio_id());
-        }
+        //AuthResponse.User currentUser = SessionManager.getInstance(this).getUser();
+        //if (currentUser != null && currentUser.getMunicipio_id() != null) {
+        //    request.setOrigenMunicipioId(currentUser.getMunicipio_id());
+        //}
 
         List<RideRequest.Stop> paradas = new ArrayList<>();
         for (int i = 0; i < stopViews.size(); i++) {
