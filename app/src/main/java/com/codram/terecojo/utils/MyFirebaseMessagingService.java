@@ -90,6 +90,46 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         }
     }
 
+    private Intent resolveDestinationIntent(String tipo) {
+        Class<?> destination;
+
+        if (tipo == null) {
+            destination = NotificationsActivity.class;
+        } else {
+            switch (tipo) {
+                case "nueva_solicitud":
+                    destination = DriverActivity.class;
+                    break;
+                case "nueva_oferta":
+                    destination = MyRequestsActivity.class;
+                    break;
+                case "oferta_aceptada":
+                    destination = DriverTripsActivity.class;
+                    break;
+                case "oferta_rechazada":
+                    destination = DriverActivity.class;
+                    break;
+                case "viaje_cancelado":
+                    AuthResponse.User user = SessionManager.getInstance(this).getUser();
+                    if (user != null && "chofer".equalsIgnoreCase(user.getTipo())) {
+                        destination = DriverTripsActivity.class;
+                    } else {
+                        destination = MyRequestsActivity.class;
+                    }
+                    break;
+                case "viaje_completado":
+                    destination = DriverTripsActivity.class;
+                    break;
+                case "sistema_alerta":
+                default:
+                    destination = NotificationsActivity.class;
+                    break;
+            }
+        }
+
+        return new Intent(this, destination);
+    }
+
     private void sendNotification(String title, String messageBody) {
         Intent intent = new Intent(this, MainActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
