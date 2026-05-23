@@ -31,6 +31,29 @@ export const createSolicitud = async (req, res, next) => {
     let resolved_destino_provincia_id = null;
     let resolved_destino_municipio_id = null;
 
+    // Helper para normalizar nombres de provincias/municipios
+    const normalizarNombre = (nombre) => {
+      if (!nombre) return nombre;
+      const mapa = {
+        'havana': 'La Habana',
+        'holguin': 'Holguín',
+        'holguín': 'Holguín',
+        'camaguey': 'Camagüey',
+        'camagüey': 'Camagüey',
+        'guantanamo': 'Guantánamo',
+        'guantánamo': 'Guantánamo',
+        'sancti spiritus': 'Sancti Spíritus',
+        'sancti spíritus': 'Sancti Spíritus',
+        'ciego de avila': 'Ciego de Ávila',
+        'ciego de ávila': 'Ciego de Ávila',
+        'pinar del rio': 'Pinar del Río',
+        'pinar del río': 'Pinar del Río',
+        'isla de la juventud': 'Isla de la Juventud',
+        'isle of youth': 'Isla de la Juventud',
+      };
+      return mapa[nombre.toLowerCase().trim()] || nombre;
+    };
+
     // Helper para resolver municipio y su provincia
     const resolverUbicacion = async (provNombre, munNombre) => {
       if (!munNombre) return { pId: null, mId: null };
@@ -111,7 +134,7 @@ export const createSolicitud = async (req, res, next) => {
     // ─────────────────────────────────────────────────────────
     // NOTIFICACIÓN (Choferes de la provincia)
     // ─────────────────────────────────────────────────────────
-    if (process.env.NODE_ENV !== 'development') {
+    //if (process.env.NODE_ENV !== 'development') {
       const target_provincia_id = resolved_origen_provincia_id;
       if (target_provincia_id) {
         await sendNotification({
@@ -123,7 +146,7 @@ export const createSolicitud = async (req, res, next) => {
           topic: `provincia_${target_provincia_id}`
         });
       }
-    }
+    //}
 
     return created(res, nuevaSolicitud, '¡Solicitud publicada con éxito!')
   } catch (err) {
