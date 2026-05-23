@@ -253,7 +253,7 @@ public class NotificationsActivity extends BaseActivity implements NotificationA
                 intent = new Intent(this, MyRequestsActivity.class);
                 break;
             case "nueva_solicitud":
-                intent = new Intent(this, DriverOffersActivity.class);
+                intent = new Intent(this, DriverActivity.class); // Fix: DriverActivity instead of DriverOffersActivity
                 break;
             case "oferta_aceptada":
             case "viaje_confirmado":
