@@ -1,474 +1,481 @@
-# PROMPT — Implementar navegación inteligente por tipo de notificación FCM
-**Proyecto:** Te Busco App (Android Java + Node.js/Express)  
-**Archivo principal a modificar:** `app/src/main/java/com/codram/terecojo/utils/MyFirebaseMessagingService.java`  
-**Archivos de referencia (no modificar, solo leer):**
-- `app/src/main/java/com/codram/terecojo/data/model/Notification.java`
-- `app/src/main/java/com/codram/terecojo/NotificationsActivity.java` → método `navigateBasedOnNotification()`
-- `tebusco-api/src/services/notificationService.js`
-- `tebusco-api/src/controllers/solicitudController.js`
+# PROMPT — Feature: "No me interesa" para el Chofer
+**Proyecto:** Te Busco App (Android Java + Node.js/Express + PostgreSQL)  
+**Objetivo:** Permitir al chofer descartar una solicitud del radar para no volver a verla ni en el mapa ni en la lista, sin afectar su visibilidad para otros choferes.
+ 
 ---
  
-## CONTEXTO DEL PROBLEMA
+## CONTEXTO Y LÓGICA DE NEGOCIO
  
-### Comportamiento actual (incorrecto)
-Cuando el servidor envía una notificación push FCM, el `MyFirebaseMessagingService` la recibe en `onMessageReceived()`. El método `sendNotification()` construye la notificación del sistema y le asigna **siempre** el mismo destino al hacer tap:
+### Cómo funciona el radar hoy
  
-```java
-// CÓDIGO ACTUAL — MyFirebaseMessagingService.java
-private void sendNotification(String title, String messageBody) {
-    Intent intent = new Intent(this, MainActivity.class); // ← HARDCODEADO, SIEMPRE MainActivity
-    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-    PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
-            PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
-    // ... build y show de la notificación
-}
+La query del radar en `getTodasSolicitudesActivas` ya hace un `LEFT JOIN` con `respuestas_solicitud` para saber si el chofer ya ofertó:
+ 
+```sql
+LEFT JOIN respuestas_solicitud r 
+  ON r.solicitud_id = v.id 
+  AND r.chofer_id = $1 
+  AND r.estado != 'rechazado'   -- ← clave: si estado = 'rechazado', no lo encuentra
+WHERE v.estado = 'activa' AND v.origen_provincia_id = $2
 ```
  
-### Comportamiento esperado
-El payload FCM que envía el servidor **ya incluye** un campo `tipo` y un `solicitud_id` en el bloque `data`. La app debe leer esos datos y construir un `Intent` que lleve al usuario exactamente a la pantalla correcta según el tipo de notificación.
+El campo `ha_respondido` en el resultado es `TRUE` cuando existe esa fila. Si el estado es `'rechazado'`, la fila no cuenta y la solicitud vuelve a aparecer como nueva.
  
+### Solución elegida: estado `'descartado'`
+ 
+Se agrega un nuevo valor de estado `'descartado'` en `respuestas_solicitud`. Al descartar:
+1. Se inserta (o actualiza con `ON CONFLICT`) una fila con `estado = 'descartado'`
+2. La query del radar se ajusta para ignorar también ese estado
+3. La solicitud desaparece del mapa y de la lista para **ese chofer únicamente**
+4. Sigue activa y visible para todos los demás choferes
+**Ventajas:**
+- Sin tabla nueva — reutiliza infraestructura existente
+- Reversible en el futuro (se puede agregar "ver descartadas")
+- El chofer no puede descartar una solicitud en la que ya ofertó (UI lo previene)
 ---
  
-## DATOS QUE LLEGAN DEL SERVIDOR (YA IMPLEMENTADOS — NO CAMBIAR EL BACKEND)
+## PARTE 1 — BACKEND (Node.js/Express + PostgreSQL)
  
-El servidor envía cada push con este formato:
+### Archivo: `tebusco-api/src/controllers/solicitudController.js`
  
-```json
-{
-  "notification": {
-    "title": "Nueva oferta recibida",
-    "body": "Un chofer ha ofertado tu viaje"
-  },
-  "data": {
-    "tipo": "nueva_oferta",
-    "solicitud_id": "42",
-    "notificacion_id": "128"
+#### Cambio 1A — Ajustar la query del radar para ignorar descartadas
+ 
+**Ubicar** la función `getTodasSolicitudesActivas`. Encontrar esta línea:
+ 
+```javascript
+// ANTES
+LEFT JOIN respuestas_solicitud r ON r.solicitud_id = v.id AND r.chofer_id = $1 AND r.estado != 'rechazado'
+```
+ 
+**Reemplazar por:**
+ 
+```javascript
+// DESPUÉS
+LEFT JOIN respuestas_solicitud r ON r.solicitud_id = v.id AND r.chofer_id = $1 AND r.estado NOT IN ('rechazado', 'descartado')
+```
+ 
+El resultado es que si existe una fila con `estado = 'descartado'` para ese chofer, el JOIN no la encuentra, `ha_respondido` queda en `FALSE`, y la solicitud **no aparece** en el resultado del radar.
+ 
+> **Importante:** También hay que filtrar las solicitudes descartadas del resultado final. Agregar al `WHERE` de la query principal:
+ 
+```javascript
+// Query completa corregida dentro de getTodasSolicitudesActivas:
+let sql = `
+  SELECT v.*, 
+    CASE WHEN r.id IS NOT NULL THEN TRUE ELSE FALSE END as ha_respondido
+  FROM v_solicitudes v
+  JOIN solicitudes s ON s.id = v.id
+  LEFT JOIN respuestas_solicitud r 
+    ON r.solicitud_id = v.id 
+    AND r.chofer_id = $1 
+    AND r.estado NOT IN ('rechazado', 'descartado')
+  -- Subconsulta para excluir descartadas completamente del resultado
+  WHERE v.estado = 'activa' 
+    AND v.origen_provincia_id = $2
+    AND NOT EXISTS (
+      SELECT 1 FROM respuestas_solicitud rd 
+      WHERE rd.solicitud_id = v.id 
+        AND rd.chofer_id = $1 
+        AND rd.estado = 'descartado'
+    )
+`;
+```
+ 
+#### Cambio 1B — Agregar la función `descartarSolicitud`
+ 
+Agregar esta función **nueva** al final del archivo, antes del último `export`:
+ 
+```javascript
+/**
+ * El chofer descarta una solicitud (no le interesa, no vuelve a verla)
+ */
+export const descartarSolicitud = async (req, res, next) => {
+  try {
+    const { id: usuarioId } = req.usuario
+    const { solicitud_id } = req.params
+ 
+    // 1. Obtener el ID de chofer
+    const { rows: choferRows } = await query(
+      'SELECT id FROM choferes WHERE usuario_id = $1',
+      [usuarioId]
+    )
+ 
+    if (choferRows.length === 0) {
+      return badRequest(res, 'Solo los choferes pueden descartar solicitudes')
+    }
+    const choferId = choferRows[0].id
+ 
+    // 2. Verificar que la solicitud existe y está activa
+    const { rows: solRows } = await query(
+      'SELECT id FROM solicitudes WHERE id = $1 AND estado = $2',
+      [solicitud_id, 'activa']
+    )
+ 
+    if (solRows.length === 0) {
+      return notFound(res, 'La solicitud no existe o ya no está activa')
+    }
+ 
+    // 3. Insertar o actualizar el registro de descarte
+    //    ON CONFLICT maneja el caso en que el chofer ya tenía una fila previa
+    //    (por ejemplo, si había ofertado y fue rechazado — ahora descarta)
+    await query(
+      `INSERT INTO respuestas_solicitud (solicitud_id, chofer_id, estado)
+       VALUES ($1, $2, 'descartado')
+       ON CONFLICT (solicitud_id, chofer_id) 
+       DO UPDATE SET estado = 'descartado', respondido_en = NOW()`,
+      [solicitud_id, choferId]
+    )
+ 
+    return success(res, null, 'Solicitud descartada correctamente')
+  } catch (err) {
+    next(err)
   }
 }
 ```
  
-El campo `data` llega en Android como `remoteMessage.getData()`, que devuelve un `Map<String, String>`.
+### Archivo: `tebusco-api/src/routes/solicitud.js`
  
-### Todos los tipos de notificación que emite el backend
+Agregar la nueva ruta **después** de la ruta de `responder`, antes de las rutas de ofertas:
  
-| `tipo` (String) | Quién lo recibe | Pantalla destino correcta |
-|---|---|---|
-| `nueva_solicitud` | Chofer | `DriverActivity.class` |
-| `nueva_oferta` | Pasajero | `MyRequestsActivity.class` |
-| `oferta_aceptada` | Chofer | `DriverTripsActivity.class` |
-| `oferta_rechazada` | Chofer | `DriverActivity.class` (volver al radar) |
-| `viaje_cancelado` | Pasajero o Chofer | Depende del rol del usuario en sesión: si es pasajero → `MyRequestsActivity.class`; si es chofer → `DriverTripsActivity.class` |
-| `viaje_completado` | Chofer | `DriverTripsActivity.class` |
-| `sistema_alerta` | Admin/Sistema | `NotificationsActivity.class` |
-| `null` o desconocido | Cualquiera | `NotificationsActivity.class` (fallback seguro) |
+```javascript
+// AGREGAR esta línea:
+router.post('/:solicitud_id/descartar', requireVerificado, solicitudController.descartarSolicitud)
+```
  
-### Cómo obtener el rol del usuario en sesión (ya existe en el proyecto)
+El archivo de rutas completo con el agregado:
  
-```java
-// SessionManager ya existe — úsalo así:
-AuthResponse.User user = SessionManager.getInstance(this).getUser();
-String tipoUsuario = user != null ? user.getTipo() : null; // "pasajero", "chofer", "admin"
+```javascript
+import express from 'express'
+import { authenticate, requireVerificado } from '../middleware/auth.js'
+import * as solicitudController from '../controllers/solicitudController.js'
+ 
+const router = express.Router()
+ 
+router.use(authenticate)
+ 
+router.get('/radar', solicitudController.getTodasSolicitudesActivas)
+router.get('/mis-solicitudes', solicitudController.getMisSolicitudes)
+router.get('/mis-viajes', solicitudController.getMisViajesChofer)
+router.post('/mis-viajes/:id/cancelar', requireVerificado, solicitudController.cancelarViajeChofer)
+router.get('/:id', solicitudController.getSolicitudById)
+router.post('/', solicitudController.createSolicitud)
+ 
+router.post('/:solicitud_id/responder', requireVerificado, solicitudController.responderSolicitud)
+router.post('/:solicitud_id/descartar', requireVerificado, solicitudController.descartarSolicitud)  // ← NUEVO
+ 
+router.get('/:solicitud_id/ofertas', solicitudController.getOfertasBySolicitud)
+router.post('/ofertas/:respuesta_id/aceptar', solicitudController.aceptarRespuesta)
+router.post('/ofertas/:respuesta_id/rechazar', solicitudController.rechazarRespuesta)
+ 
+router.post('/:id/cancelar', solicitudController.cancelarSolicitud)
+router.post('/:id/finalizar', solicitudController.finalizarViaje)
+ 
+export default router
 ```
  
 ---
  
-## CAMBIOS A IMPLEMENTAR
+## PARTE 2 — ANDROID
  
-### Archivo: `MyFirebaseMessagingService.java`
+### Archivo: `app/src/main/java/com/codram/terecojo/data/remote/ApiService.java`
  
-#### Cambio 1 — Modificar `onMessageReceived()` para extraer el `data` payload
+Agregar la nueva llamada Retrofit junto a las demás de solicitudes (después de `responderSolicitud`):
  
-**Situación actual:** `onMessageReceived()` extrae título y body de `remoteMessage.getNotification()` y llama a `sendNotification(title, body)`. El `data` payload se loguea pero se descarta.
+```java
+// AGREGAR esta declaración:
+@POST("api/solicitudes/{id}/descartar")
+Call<ApiResponse<Void>> descartarSolicitud(@Path("id") String solicitudId);
+```
  
-**Situación requerida:** Extraer también `tipo` y `solicitud_id` del `data` payload y pasarlos a `sendNotification()`.
+---
+ 
+### Archivo: `app/src/main/java/com/codram/terecojo/ui/viewmodel/DriverViewModel.java`
+ 
+Agregar el método `descartarSolicitud` al ViewModel. Agregar primero el LiveData:
+ 
+```java
+// Agregar junto a los otros MutableLiveData existentes:
+private final MutableLiveData<String> descartarSuccess = new MutableLiveData<>();
+ 
+// Agregar el getter:
+public LiveData<String> getDescartarSuccess() { return descartarSuccess; }
+```
+ 
+Agregar el método al final de la clase, antes del cierre `}`:
+ 
+```java
+public void descartarSolicitud(String solicitudId) {
+    RetrofitClient.getService().descartarSolicitud(solicitudId).enqueue(new Callback<ApiResponse<Void>>() {
+        @Override
+        public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+            if (response.isSuccessful()) {
+                // Pasar el ID para que la Activity pueda eliminar el marcador/item
+                descartarSuccess.postValue(solicitudId);
+            } else {
+                errorMessage.postValue("Error al descartar la solicitud");
+            }
+        }
+ 
+        @Override
+        public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+            errorMessage.postValue("Error de red: " + t.getMessage());
+        }
+    });
+}
+```
+ 
+---
+ 
+### Archivo: `app/src/main/java/com/codram/terecojo/DriverActivity.java`
+ 
+#### Cambio 2A — Agregar `onDiscard` a la interfaz del listener
+ 
+Localizar la interfaz `OnRideActionListener` en `RideRequestAdapter.java` y agregar el nuevo método. También aquí en `DriverActivity` donde se implementa la interfaz.
+ 
+En `DriverActivity`, agregar el método `onDiscard`:
+ 
+```java
+// Nuevo método — implementa la acción de descartar desde la lista
+public void onDiscard(RideRequest request) {
+    new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        .setTitle("Descartar solicitud")
+        .setMessage("No volverás a ver esta solicitud en el radar. ¿Confirmas?")
+        .setPositiveButton("DESCARTAR", (dialog, which) -> {
+            viewModel.descartarSolicitud(request.getId());
+        })
+        .setNegativeButton("CANCELAR", null)
+        .show();
+}
+```
+ 
+#### Cambio 2B — Observar el resultado del descarte y actualizar el mapa
+ 
+En el método `setupObservers()` de `DriverActivity`, agregar el observer para `descartarSuccess`:
+ 
+```java
+// Agregar dentro de setupObservers():
+viewModel.getDescartarSuccess().observe(this, solicitudId -> {
+    if (solicitudId != null) {
+        Toast.makeText(this, "Solicitud descartada", Toast.LENGTH_SHORT).show();
+        // 1. Eliminar el marcador del mapa
+        com.google.android.gms.maps.model.Marker toRemove = null;
+        for (com.google.android.gms.maps.model.Marker m : radarMarkers) {
+            RideRequest tag = (RideRequest) m.getTag();
+            if (tag != null && tag.getId().equals(solicitudId)) {
+                toRemove = m;
+                break;
+            }
+        }
+        if (toRemove != null) {
+            toRemove.remove();
+            radarMarkers.remove(toRemove);
+        }
+        // 2. Eliminar de la lista del adapter
+        radarRequests.removeIf(r -> r.getId().equals(solicitudId));
+        if (adapter != null) adapter.notifyDataSetChanged();
+        // 3. Limpiar la ruta si se estaba viendo la ruta de esta solicitud
+        clearRouteMarkersAndPolylines();
+        binding.fabClearRoute.setVisibility(View.GONE);
+    }
+});
+```
+ 
+#### Cambio 2C — Agregar botón "No me interesa" en el dialog de detalles del mapa
+ 
+Localizar el método `showRequestDetailsDialog(RideRequest req)` en `DriverActivity.java`. Actualmente tiene dos botones: `OFERTAR` y `CERRAR`. Agregar un tercer botón neutral para descartar.
+ 
+**Reemplazar** el método completo:
+ 
+```java
+private void showRequestDetailsDialog(RideRequest req) {
+    com.google.android.material.dialog.MaterialAlertDialogBuilder builder =
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this);
+    builder.setTitle("Detalles de la Solicitud");
+ 
+    StringBuilder msg = new StringBuilder();
+    msg.append("👤 Pasajero: ").append(req.getPasajeroNombre()).append("\n");
+    msg.append("📏 Distancia: ").append(String.format("%.1f km", req.getDistancia())).append("\n");
+    msg.append("👥 Pasajeros: ").append(req.getNumPasajeros()).append("\n");
+ 
+    int stops = (req.getParadas() != null) ? req.getParadas().size() : 0;
+    msg.append("📍 Paradas: ").append(stops).append("\n");
+ 
+    if (req.getDescripcion() != null && !req.getDescripcion().isEmpty()) {
+        msg.append("\n📝 Notas: ").append(req.getDescripcion()).append("\n");
+    }
+ 
+    msg.append("\n💰 Oferta Pasajero: $").append(req.getPrecioOferta());
+ 
+    if (req.isHaRespondido()) {
+        msg.append("\n\n✅ Ya has enviado una oferta para este viaje.");
+    }
+ 
+    builder.setMessage(msg.toString());
+ 
+    // Botón principal: Ofertar
+    builder.setPositiveButton("OFERTAR", (dialog, which) -> onAccept(req));
+ 
+    // Botón neutral: No me interesa (solo si no ha ofertado ya)
+    if (!req.isHaRespondido()) {
+        builder.setNeutralButton("NO ME INTERESA", (dialog, which) -> onDiscard(req));
+    }
+ 
+    // Botón negativo: Cerrar
+    builder.setNegativeButton("CERRAR", null);
+ 
+    androidx.appcompat.app.AlertDialog dialog = builder.create();
+    dialog.show();
+ 
+    // Deshabilitar Ofertar si ya respondió
+    if (req.isHaRespondido()) {
+        dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+    }
+ 
+    // Colorear el botón "No me interesa" en gris para diferenciarlo visualmente
+    android.widget.Button btnNeutral = dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEUTRAL);
+    if (btnNeutral != null) {
+        btnNeutral.setTextColor(
+            androidx.core.content.ContextCompat.getColor(this, R.color.gray_dark)
+        );
+    }
+}
+```
+ 
+---
+ 
+### Archivo: `app/src/main/java/com/codram/terecojo/ui/adapter/RideRequestAdapter.java`
+ 
+#### Cambio 3A — Agregar `onDiscard` a la interfaz
  
 ```java
 // ANTES
-@Override
-public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
-    // ...
-    if (remoteMessage.getNotification() != null) {
-        String title = remoteMessage.getNotification().getTitle();
-        String body  = remoteMessage.getNotification().getBody();
-        sendNotification(title, body);  // ← solo 2 parámetros
+public interface OnRideActionListener {
+    void onAccept(RideRequest request);
+    void onViewMap(RideRequest request);
+}
+ 
+// DESPUÉS
+public interface OnRideActionListener {
+    void onAccept(RideRequest request);
+    void onViewMap(RideRequest request);
+    void onDiscard(RideRequest request);  // ← NUEVO
+}
+```
+ 
+#### Cambio 3B — Agregar botón "No me interesa" en el item de la lista
+ 
+En `onBindViewHolder`, después del bloque que maneja `btnAccept`, agregar la lógica para `btnDiscard`:
+ 
+```java
+// Agregar al final de onBindViewHolder, después del handler de btnAccept:
+if (holder.btnDiscard != null) {
+    // Solo mostrar el botón si el chofer no ha ofertado ni descartado ya
+    if (!request.isHaRespondido()) {
+        holder.btnDiscard.setVisibility(View.VISIBLE);
+        holder.btnDiscard.setOnClickListener(v -> {
+            if (listener != null) listener.onDiscard(request);
+        });
+    } else {
+        holder.btnDiscard.setVisibility(View.GONE);
+    }
+}
+```
+ 
+Agregar `btnDiscard` al `ViewHolder`:
+ 
+```java
+// ANTES
+public static class ViewHolder extends RecyclerView.ViewHolder {
+    TextView tvPassengerName, tvPrice, tvDateTime;
+    TextView tvDistanceApprox, tvStopsDetail, tvPassengersDetail, tvCreatedDate, tvDescription, tvOfferPrice;
+    View btnAccept, btnViewMap;
+ 
+    public ViewHolder(@NonNull View itemView) {
+        super(itemView);
+        // ... findViewByIds existentes
+        btnAccept = itemView.findViewById(R.id.btnAccept);
+        btnViewMap = itemView.findViewById(R.id.btnViewMap);
     }
 }
  
 // DESPUÉS
+public static class ViewHolder extends RecyclerView.ViewHolder {
+    TextView tvPassengerName, tvPrice, tvDateTime;
+    TextView tvDistanceApprox, tvStopsDetail, tvPassengersDetail, tvCreatedDate, tvDescription, tvOfferPrice;
+    View btnAccept, btnViewMap, btnDiscard;  // ← btnDiscard agregado
+ 
+    public ViewHolder(@NonNull View itemView) {
+        super(itemView);
+        // ... findViewByIds existentes sin cambios
+        btnAccept = itemView.findViewById(R.id.btnAccept);
+        btnViewMap = itemView.findViewById(R.id.btnViewMap);
+        btnDiscard = itemView.findViewById(R.id.btnDiscard);  // ← NUEVO
+    }
+}
+```
+ 
+---
+ 
+### Archivo: `app/src/main/res/layout/item_ride_request.xml`
+ 
+Agregar el botón "No me interesa" debajo del `LinearLayout` que contiene los botones `VER RUTA` y `OFERTAR`. El botón va como una segunda fila de botones, con texto pequeño y color gris para que visualmente tenga menos peso que los botones principales.
+ 
+**Localizar** el `LinearLayout` con `android:layout_marginTop="12dp"` que contiene `btnViewMap` y `btnAccept`. **Después** de ese `LinearLayout` (pero dentro del `LinearLayout` padre vertical), agregar:
+ 
+```xml
+<!-- Botón secundario: No me interesa -->
+<com.google.android.material.button.MaterialButton
+    android:id="@+id/btnDiscard"
+    style="@style/Widget.Material3.Button.TextButton"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_gravity="center_horizontal"
+    android:layout_marginTop="4dp"
+    android:text="No me interesa"
+    android:textColor="@color/gray_dark"
+    android:textSize="12sp"
+    app:cornerRadius="8dp"
+    app:icon="@android:drawable/ic_menu_close_clear_cancel"
+    app:iconSize="14dp"
+    app:iconTint="@color/gray_dark"
+    app:iconGravity="textStart" />
+```
+ 
+> El estilo `Widget.Material3.Button.TextButton` lo hace visualmente discreto (sin fondo, sin borde), apropiado para una acción secundaria y destructiva-suave.
+ 
+---
+ 
+### Archivo: `app/src/main/java/com/codram/terecojo/DriverProfileActivity.java`
+ 
+`DriverProfileActivity` también implementa `OnRideActionListener` y muestra el radar en lista. Hay que agregar el método `onDiscard` para que compile.
+ 
+Agregar el método en `DriverProfileActivity`:
+ 
+```java
 @Override
-public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
-    if (SessionManager.getInstance(this).getToken() == null) {
-        Log.d(TAG, "Mensaje ignorado: No hay sesión activa.");
-        return;
-    }
- 
-    // Extraer data payload (siempre presente aunque notification sea nulo)
-    Map<String, String> data = remoteMessage.getData();
-    String tipo         = data.getOrDefault("tipo", null);
-    String solicitudId  = data.getOrDefault("solicitud_id", null);
- 
-    Log.d(TAG, "FCM recibido — tipo: " + tipo + ", solicitud_id: " + solicitudId);
- 
-    if (remoteMessage.getNotification() != null) {
-        String title = remoteMessage.getNotification().getTitle();
-        String body  = remoteMessage.getNotification().getBody();
-        sendNotification(title, body, tipo, solicitudId);  // ← 4 parámetros
-    } else if (!data.isEmpty()) {
-        // Notificación data-only (sin bloque notification) — construir desde data
-        String title = data.getOrDefault("titulo", "Te Busco");
-        String body  = data.getOrDefault("cuerpo", "Tienes una nueva notificación");
-        sendNotification(title, body, tipo, solicitudId);
-    }
+public void onDiscard(RideRequest request) {
+    // Confirmar y llamar a la API
+    new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        .setTitle("Descartar solicitud")
+        .setMessage("No volverás a ver esta solicitud en el radar. ¿Confirmas?")
+        .setPositiveButton("DESCARTAR", (dialog, which) -> {
+            viewModel.descartarSolicitud(request.getId());
+        })
+        .setNegativeButton("CANCELAR", null)
+        .show();
 }
 ```
  
-> **Nota:** El import que necesitas agregar es `java.util.Map` — los demás ya están en el archivo.
- 
----
- 
-#### Cambio 2 — Reemplazar `sendNotification(String, String)` por `sendNotification(String, String, String, String)`
- 
-Este es el cambio central. El método debe construir un `Intent` distinto según el valor de `tipo`.
+Agregar el observer en `setupObservers()` de `DriverProfileActivity`:
  
 ```java
-// MÉTODO COMPLETO A REEMPLAZAR
-private void sendNotification(String title, String messageBody, String tipo, String solicitudId) {
- 
-    // 1. Determinar la pantalla destino según el tipo de notificación
-    Intent intent = resolveDestinationIntent(tipo);
- 
-    // 2. Si hay solicitud_id, pasarlo como extra para que la pantalla destino
-    //    pueda pre-seleccionar o destacar el viaje relevante (útil en el futuro)
-    if (solicitudId != null && !solicitudId.isEmpty()) {
-        intent.putExtra("solicitud_id", solicitudId);
+viewModel.getDescartarSuccess().observe(this, solicitudId -> {
+    if (solicitudId != null) {
+        Toast.makeText(this, "Solicitud descartada", Toast.LENGTH_SHORT).show();
+        requests.removeIf(r -> r.getId().equals(solicitudId));
+        if (adapter != null) adapter.notifyDataSetChanged();
+        updateEmptyState(requests.isEmpty());
     }
- 
-    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
- 
-    // 3. Usar requestCode único basado en el tipo para evitar colisión de PendingIntents
-    //    Si todos usan requestCode=0, Android puede reutilizar un PendingIntent viejo
-    //    con el Intent incorrecto cuando llegan dos notificaciones distintas seguidas.
-    int requestCode = tipo != null ? tipo.hashCode() & 0xFFFF : 0;
- 
-    PendingIntent pendingIntent = PendingIntent.getActivity(
-            this,
-            requestCode,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-    );
- 
-    // 4. Construir y mostrar la notificación del sistema (igual que antes)
-    String channelId = "default_channel_id";
-    Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
- 
-    NotificationCompat.Builder notificationBuilder =
-            new NotificationCompat.Builder(this, channelId)
-                    .setSmallIcon(R.drawable.ic_notifications)
-                    .setContentTitle(title != null ? title : "Te Busco")
-                    .setContentText(messageBody)
-                    .setAutoCancel(true)
-                    .setSound(defaultSoundUri)
-                    .setContentIntent(pendingIntent)
-                    .setPriority(NotificationCompat.PRIORITY_HIGH);
- 
-    NotificationManager notificationManager =
-            (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
- 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        NotificationChannel channel = new NotificationChannel(
-                channelId,
-                "Canal de Notificaciones Te Busco",
-                NotificationManager.IMPORTANCE_HIGH
-        );
-        notificationManager.createNotificationChannel(channel);
-    }
- 
-    // 5. Usar un notificationId único por tipo para que múltiples notificaciones
-    //    del mismo tipo se apilen en lugar de reemplazarse entre sí con IDs diferentes.
-    int notificationId = tipo != null ? tipo.hashCode() & 0xFF : 0;
-    notificationManager.notify(notificationId, notificationBuilder.build());
-}
-```
- 
----
- 
-#### Cambio 3 — Agregar el método privado `resolveDestinationIntent()`
- 
-Este método centraliza toda la lógica de routing. Debe agregarse como método privado nuevo en la clase.
- 
-```java
-private Intent resolveDestinationIntent(String tipo) {
-    Class<?> destination;
- 
-    if (tipo == null) {
-        // Sin tipo conocido: ir a la bandeja de notificaciones
-        destination = com.codram.terecojo.NotificationsActivity.class;
- 
-    } else {
-        switch (tipo) {
- 
-            case "nueva_solicitud":
-                // El chofer recibe esto → lo llevamos al radar
-                destination = com.codram.terecojo.DriverActivity.class;
-                break;
- 
-            case "nueva_oferta":
-                // El pasajero recibe esto → ver sus solicitudes y las ofertas
-                destination = com.codram.terecojo.MyRequestsActivity.class;
-                break;
- 
-            case "oferta_aceptada":
-                // El chofer recibe esto → ver sus viajes confirmados
-                destination = com.codram.terecojo.DriverTripsActivity.class;
-                break;
- 
-            case "oferta_rechazada":
-                // El chofer recibe esto → volver al radar a buscar otro viaje
-                destination = com.codram.terecojo.DriverActivity.class;
-                break;
- 
-            case "viaje_cancelado":
-                // Puede recibirlo tanto el pasajero como el chofer.
-                // Leer el rol del usuario en sesión para decidir.
-                AuthResponse.User user = SessionManager.getInstance(this).getUser();
-                if (user != null && "chofer".equalsIgnoreCase(user.getTipo())) {
-                    destination = com.codram.terecojo.DriverTripsActivity.class;
-                } else {
-                    destination = com.codram.terecojo.MyRequestsActivity.class;
-                }
-                break;
- 
-            case "viaje_completado":
-                // El chofer recibe esto → ver historial de viajes
-                destination = com.codram.terecojo.DriverTripsActivity.class;
-                break;
- 
-            case "sistema_alerta":
-            default:
-                // Sistema, admin, o tipo desconocido → bandeja de notificaciones
-                destination = com.codram.terecojo.NotificationsActivity.class;
-                break;
-        }
-    }
- 
-    return new Intent(this, destination);
-}
-```
- 
-> **Imports que necesita este método** — agregar al bloque de imports de la clase si no están ya:
-> ```java
-> import com.codram.terecojo.DriverActivity;
-> import com.codram.terecojo.DriverTripsActivity;
-> import com.codram.terecojo.MyRequestsActivity;
-> import com.codram.terecojo.NotificationsActivity;
-> import com.codram.terecojo.data.model.AuthResponse;
-> ```
- 
----
- 
-## RESULTADO FINAL — Cómo debe quedar `MyFirebaseMessagingService.java` completo
- 
-```java
-package com.codram.terecojo.utils;
- 
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.content.Context;
-import android.content.Intent;
-import android.media.RingtoneManager;
-import android.net.Uri;
-import android.os.Build;
-import android.util.Log;
- 
-import androidx.annotation.NonNull;
-import androidx.core.app.NotificationCompat;
- 
-import com.codram.terecojo.DriverActivity;
-import com.codram.terecojo.DriverTripsActivity;
-import com.codram.terecojo.MyRequestsActivity;
-import com.codram.terecojo.NotificationsActivity;
-import com.codram.terecojo.R;
-import com.codram.terecojo.data.model.ApiResponse;
-import com.codram.terecojo.data.model.AuthResponse;
-import com.codram.terecojo.data.model.FcmTokenRequest;
-import com.codram.terecojo.data.remote.ApiService;
-import com.codram.terecojo.data.remote.RetrofitClient;
-import com.google.firebase.messaging.FirebaseMessagingService;
-import com.google.firebase.messaging.RemoteMessage;
- 
-import java.util.Map;
- 
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
- 
-public class MyFirebaseMessagingService extends FirebaseMessagingService {
- 
-    private static final String TAG = "MyFirebaseMsgService";
- 
-    @Override
-    public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
-        Log.d(TAG, "From: " + remoteMessage.getFrom());
- 
-        if (SessionManager.getInstance(this).getToken() == null) {
-            Log.d(TAG, "Mensaje ignorado: No hay sesión activa.");
-            return;
-        }
- 
-        Map<String, String> data = remoteMessage.getData();
-        String tipo        = data.getOrDefault("tipo", null);
-        String solicitudId = data.getOrDefault("solicitud_id", null);
- 
-        Log.d(TAG, "FCM recibido — tipo: " + tipo + ", solicitud_id: " + solicitudId);
- 
-        if (remoteMessage.getNotification() != null) {
-            String title = remoteMessage.getNotification().getTitle();
-            String body  = remoteMessage.getNotification().getBody();
-            sendNotification(title, body, tipo, solicitudId);
-        } else if (!data.isEmpty()) {
-            String title = data.getOrDefault("titulo", "Te Busco");
-            String body  = data.getOrDefault("cuerpo", "Tienes una nueva notificación");
-            sendNotification(title, body, tipo, solicitudId);
-        }
-    }
- 
-    @Override
-    public void onNewToken(@NonNull String token) {
-        Log.d(TAG, "Refreshed token: " + token);
-        updateTokenOnServer(token);
-    }
- 
-    private void updateTokenOnServer(String token) {
-        SessionManager sessionManager = SessionManager.getInstance(this);
-        if (sessionManager.getToken() != null) {
-            ApiService apiService = RetrofitClient.getService();
-            apiService.updateFcmToken(new FcmTokenRequest(token)).enqueue(new Callback<ApiResponse<Void>>() {
-                @Override
-                public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
-                    if (response.isSuccessful()) {
-                        Log.d(TAG, "FCM Token actualizado en el servidor");
-                    } else {
-                        Log.e(TAG, "Error al actualizar FCM Token en el servidor");
-                    }
-                }
- 
-                @Override
-                public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
-                    Log.e(TAG, "Fallo de red al actualizar FCM Token: " + t.getMessage());
-                }
-            });
-        }
-    }
- 
-    private void sendNotification(String title, String messageBody, String tipo, String solicitudId) {
-        Intent intent = resolveDestinationIntent(tipo);
- 
-        if (solicitudId != null && !solicitudId.isEmpty()) {
-            intent.putExtra("solicitud_id", solicitudId);
-        }
- 
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
- 
-        int requestCode = tipo != null ? tipo.hashCode() & 0xFFFF : 0;
- 
-        PendingIntent pendingIntent = PendingIntent.getActivity(
-                this,
-                requestCode,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
- 
-        String channelId = "default_channel_id";
-        Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
- 
-        NotificationCompat.Builder notificationBuilder =
-                new NotificationCompat.Builder(this, channelId)
-                        .setSmallIcon(R.drawable.ic_notifications)
-                        .setContentTitle(title != null ? title : "Te Busco")
-                        .setContentText(messageBody)
-                        .setAutoCancel(true)
-                        .setSound(defaultSoundUri)
-                        .setContentIntent(pendingIntent)
-                        .setPriority(NotificationCompat.PRIORITY_HIGH);
- 
-        NotificationManager notificationManager =
-                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
- 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    channelId,
-                    "Canal de Notificaciones Te Busco",
-                    NotificationManager.IMPORTANCE_HIGH
-            );
-            notificationManager.createNotificationChannel(channel);
-        }
- 
-        int notificationId = tipo != null ? tipo.hashCode() & 0xFF : 0;
-        notificationManager.notify(notificationId, notificationBuilder.build());
-    }
- 
-    private Intent resolveDestinationIntent(String tipo) {
-        Class<?> destination;
- 
-        if (tipo == null) {
-            destination = NotificationsActivity.class;
-        } else {
-            switch (tipo) {
-                case "nueva_solicitud":
-                    destination = DriverActivity.class;
-                    break;
-                case "nueva_oferta":
-                    destination = MyRequestsActivity.class;
-                    break;
-                case "oferta_aceptada":
-                    destination = DriverTripsActivity.class;
-                    break;
-                case "oferta_rechazada":
-                    destination = DriverActivity.class;
-                    break;
-                case "viaje_cancelado":
-                    AuthResponse.User user = SessionManager.getInstance(this).getUser();
-                    if (user != null && "chofer".equalsIgnoreCase(user.getTipo())) {
-                        destination = DriverTripsActivity.class;
-                    } else {
-                        destination = MyRequestsActivity.class;
-                    }
-                    break;
-                case "viaje_completado":
-                    destination = DriverTripsActivity.class;
-                    break;
-                case "sistema_alerta":
-                default:
-                    destination = NotificationsActivity.class;
-                    break;
-            }
-        }
- 
-        return new Intent(this, destination);
-    }
-}
-```
- 
----
- 
-## CORRECCIÓN ADICIONAL EN `NotificationsActivity.java`
- 
-Mientras implementas lo anterior, hay un bug en la navegación que hace `NotificationsActivity` cuando el usuario toca una notificación in-app (las que están guardadas en BD). El case `nueva_solicitud` lleva al chofer a `DriverOffersActivity` (pantalla vacía) en lugar de `DriverActivity`.
- 
-**Archivo:** `app/src/main/java/com/codram/terecojo/NotificationsActivity.java`  
-**Método:** `navigateBasedOnNotification()`
- 
-```java
-// ANTES (incorrecto)
-case "nueva_solicitud":
-    intent = new Intent(this, DriverOffersActivity.class); // ← pantalla vacía
-    break;
- 
-// DESPUÉS (correcto)
-case "nueva_solicitud":
-    intent = new Intent(this, DriverActivity.class); // ← radar del chofer
-    break;
+});
 ```
  
 ---
