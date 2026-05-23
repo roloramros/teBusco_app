@@ -178,10 +178,8 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
                         intent = new Intent(this, FrequentSitesActivity.class);
                     }
                 } else if (id == R.id.nav_driver_radar) {
-                    if (!(this instanceof DriverActivity)) {
-                        intent = new Intent(this, DriverActivity.class);
-                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                    }
+                    intent = new Intent(this, DriverActivity.class);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
                 } else if (id == R.id.nav_driver_trips) {
                     if (!(this instanceof DriverTripsActivity)) {
                         intent = new Intent(this, DriverTripsActivity.class);
@@ -298,6 +296,10 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
         }
     }
 
+    protected boolean shouldAutoCenterAtStart() {
+        return true;
+    }
+
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
         mMap = googleMap;
@@ -311,8 +313,8 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
 
         enableMyLocation();
 
-        // Intentar centrar en mi ubicación actual al inicio
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        // Intentar centrar en mi ubicación actual al inicio si está permitido
+        if (shouldAutoCenterAtStart() && ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             mMap.setOnMyLocationChangeListener(location -> {
                 if (location != null) {
                     LatLng myLatLng = new LatLng(location.getLatitude(), location.getLongitude());

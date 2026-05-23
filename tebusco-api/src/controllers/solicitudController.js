@@ -64,10 +64,10 @@ export const createSolicitud = async (req, res, next) => {
       let paramsMun = [munNombre.trim()];
 
       if (provNombre) {
-        queryMun += 'JOIN provincias p ON p.id = m.provincia_id WHERE m.nombre ILIKE $1 AND p.nombre ILIKE $2 LIMIT 1';
-        paramsMun.push(provNombre.trim());
+  	queryMun += 'JOIN provincias p ON p.id = m.provincia_id WHERE unaccent(m.nombre) ILIKE unaccent($1) AND unaccent(p.nombre) ILIKE unaccent($2) LIMIT 1';
+  	paramsMun.push(provNombre.trim());
       } else {
-        queryMun += 'WHERE m.nombre ILIKE $1 LIMIT 1';
+  	queryMun += 'WHERE unaccent(m.nombre) ILIKE unaccent($1) LIMIT 1';
       }
 
       const resMun = await query(queryMun, paramsMun);
@@ -78,7 +78,7 @@ export const createSolicitud = async (req, res, next) => {
     };
 
     if (origen_municipio_nombre) {
-      const { pId, mId } = await resolverUbicacion(
+        const { pId, mId } = await resolverUbicacion(
         normalizarNombre(origen_provincia_nombre),
         normalizarNombre(origen_municipio_nombre)
       );
@@ -87,6 +87,10 @@ export const createSolicitud = async (req, res, next) => {
     }
 
     if (destino_municipio_nombre) {
+      console.log('>>> origen_provincia_nombre:', origen_provincia_nombre);
+      console.log('>>> origen_municipio_nombre:', origen_municipio_nombre);
+      console.log('>>> normalizado provincia:', normalizarNombre(origen_provincia_nombre));
+      console.log('>>> normalizado municipio:', normalizarNombre(origen_municipio_nombre));
       const { pId, mId } = await resolverUbicacion(
         normalizarNombre(destino_provincia_nombre),
         normalizarNombre(destino_municipio_nombre)

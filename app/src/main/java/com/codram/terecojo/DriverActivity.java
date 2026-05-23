@@ -70,6 +70,7 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
         
         setupRecyclerView();
         setupClearRouteButton();
+        setupRefreshRadarButton();
         setupWindowInsets();
 
         processAutoRouteIntent(getIntent()); // NUEVO
@@ -139,6 +140,13 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
             }
         });
     }
+    private void setupRefreshRadarButton() {
+        binding.fabRefreshRadar.setOnClickListener(v -> {
+            fetchRadarData();
+            Toast.makeText(this, "Actualizando solicitudes...", Toast.LENGTH_SHORT).show();
+        });
+    }
+
     private void setupClearRouteButton() {
         binding.fabClearRoute.setOnClickListener(v -> {
             clearRouteMarkersAndPolylines();
@@ -196,11 +204,25 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (mMap != null) fetchRadarData();
+    }
+
+    @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        
+        // Si es un clic desde el menú (sin extras de ruta), limpiamos la vista de ruta
+        if (!intent.hasExtra("EXTRA_RIDE_REQUEST") && !intent.getBooleanExtra("AUTO_OPEN_ROUTE", false)) {
+            clearRouteMarkersAndPolylines();
+            binding.fabClearRoute.setVisibility(View.GONE);
+        }
+
         checkIncomingRequest(intent);
         processAutoRouteIntent(intent); // NUEVO
+        if (mMap != null) fetchRadarData();
     }
 
     private void checkIncomingRequest(Intent intent) {
@@ -301,6 +323,8 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
                     radarRequests.clear();
                     radarRequests.addAll(response.body().getData());
                     displayMarkers(radarRequests);
+                    
+                    if (adapter != null) adapter.notifyDataSetChanged();
 
                     if (pendingAutoRoute != null) { // NUEVO
                         triggerAutoRoute(pendingAutoRoute);
@@ -383,12 +407,22 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
     }
 
     @Override
+    protected boolean shouldAutoCenterAtStart() {
+        Intent intent = getIntent();
+        if (intent == null) return true;
+        
+        // No centrar si venimos a ver una ruta específica
+        boolean hasIncomingRequest = intent.hasExtra("EXTRA_RIDE_REQUEST");
+        boolean hasAutoRoute = intent.getBooleanExtra("AUTO_OPEN_ROUTE", false);
+        
+        return !hasIncomingRequest && !hasAutoRoute;
+    }
+
     public void onViewMap(RideRequest request) {
         if (mMap == null) return;
         
         isViewingRoute = true;
         clearRouteMarkersAndPolylines();
-        isViewingRoute = true;
 
         // Ocultar marcadores del radar (menos el que se seleccionó si se llamó desde el clic)
         for (com.google.android.gms.maps.model.Marker m : radarMarkers) {

@@ -57,6 +57,18 @@
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/fabRefreshRadar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="16dp"
+                android:contentDescription="Actualizar solicitudes"
+                android:src="@android:drawable/ic_popup_sync"
+                app:backgroundTint="?attr/colorSurface"
+                app:layout_constraintBottom_toTopOf="@id/fabClearRoute"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:tint="@color/primary_dark_blue" />
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
                 android:id="@+id/fabClearRoute"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
