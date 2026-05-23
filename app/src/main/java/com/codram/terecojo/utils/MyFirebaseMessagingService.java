@@ -41,24 +41,25 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
         Log.d(TAG, "From: " + remoteMessage.getFrom());
 
-        // Solo procesar si hay una sesión activa
         if (SessionManager.getInstance(this).getToken() == null) {
             Log.d(TAG, "Mensaje ignorado: No hay sesión activa.");
             return;
         }
 
-        // Verificar si el mensaje contiene datos
-        if (remoteMessage.getData().size() > 0) {
-            Log.d(TAG, "Message data payload: " + remoteMessage.getData());
-        }
+        Map<String, String> data = remoteMessage.getData();
+        String tipo        = data.getOrDefault("tipo", null);
+        String solicitudId = data.getOrDefault("solicitud_id", null);
 
-        // Verificar si el mensaje contiene una notificación
+        Log.d(TAG, "FCM recibido — tipo: " + tipo + ", solicitud_id: " + solicitudId);
+
         if (remoteMessage.getNotification() != null) {
             String title = remoteMessage.getNotification().getTitle();
-            String body = remoteMessage.getNotification().getBody();
-            Log.d(TAG, "Message Notification Title: " + title);
-            Log.d(TAG, "Message Notification Body: " + body);
-            sendNotification(title, body);
+            String body  = remoteMessage.getNotification().getBody();
+            sendNotification(title, body, tipo, solicitudId);
+        } else if (!data.isEmpty()) {
+            String title = data.getOrDefault("titulo", "Te Busco");
+            String body  = data.getOrDefault("cuerpo", "Tienes una nueva notificación");
+            sendNotification(title, body, tipo, solicitudId);
         }
     }
 
@@ -130,18 +131,31 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         return new Intent(this, destination);
     }
 
-    private void sendNotification(String title, String messageBody) {
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
-                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
+    private void sendNotification(String title, String messageBody, String tipo, String solicitudId) {
+        Intent intent = resolveDestinationIntent(tipo);
+
+        if (solicitudId != null && !solicitudId.isEmpty()) {
+            intent.putExtra("solicitud_id", solicitudId);
+        }
+
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+
+        int requestCode = tipo != null ? tipo.hashCode() & 0xFFFF : 0;
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
 
         String channelId = "default_channel_id";
         Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+
         NotificationCompat.Builder notificationBuilder =
                 new NotificationCompat.Builder(this, channelId)
                         .setSmallIcon(R.drawable.ic_notifications)
-                        .setContentTitle(title != null ? title : "TeRecojo")
+                        .setContentTitle(title != null ? title : "Te Busco")
                         .setContentText(messageBody)
                         .setAutoCancel(true)
                         .setSound(defaultSoundUri)
@@ -151,14 +165,16 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         NotificationManager notificationManager =
                 (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
-        // Canales de notificación necesarios para Android Oreo y versiones posteriores
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(channelId,
-                    "Canal de Notificaciones TeRecojo",
-                    NotificationManager.IMPORTANCE_HIGH);
+            NotificationChannel channel = new NotificationChannel(
+                    channelId,
+                    "Canal de Notificaciones Te Busco",
+                    NotificationManager.IMPORTANCE_HIGH
+            );
             notificationManager.createNotificationChannel(channel);
         }
 
-        notificationManager.notify(0, notificationBuilder.build());
+        int notificationId = tipo != null ? tipo.hashCode() & 0xFF : 0;
+        notificationManager.notify(notificationId, notificationBuilder.build());
     }
 }
