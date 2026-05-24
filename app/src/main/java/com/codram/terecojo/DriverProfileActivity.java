@@ -32,6 +32,7 @@ public class DriverProfileActivity extends BaseActivity implements RideRequestAd
     private List<RideRequest> requests = new ArrayList<>();
     private DriverViewModel viewModel;
     private List<Vehicle> myVehicles = new ArrayList<>();
+    private String licenciaEstado = "PENDIENTE";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,6 +55,7 @@ public class DriverProfileActivity extends BaseActivity implements RideRequestAd
         }
 
         viewModel.fetchMyVehicles();
+        cargarEstadoLicencia(); // NUEVO
     }
 
     private void setupObservers() {
@@ -85,9 +87,23 @@ public class DriverProfileActivity extends BaseActivity implements RideRequestAd
     private void setupRequestsList() {
         AuthResponse.User user = SessionManager.getInstance(this).getUser();
         boolean verified = user != null && user.isVerificado();
-        adapter = new RideRequestAdapter(requests, verified, this);
+        adapter = new RideRequestAdapter(requests, verified, licenciaEstado, this);
         profileBinding.rvRequests.setLayoutManager(new LinearLayoutManager(this));
         profileBinding.rvRequests.setAdapter(adapter);
+    }
+
+    private void cargarEstadoLicencia() {
+        RetrofitClient.getService().getMiLicencia().enqueue(new Callback<ApiResponse<com.codram.terecojo.data.model.Licencia>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<com.codram.terecojo.data.model.Licencia>> call, Response<ApiResponse<com.codram.terecojo.data.model.Licencia>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    licenciaEstado = response.body().getData().getEstado();
+                    setupRequestsList(); // Refrescar adapter con el nuevo estado
+                }
+            }
+            @Override
+            public void onFailure(Call<ApiResponse<com.codram.terecojo.data.model.Licencia>> call, Throwable t) { }
+        });
     }
 
     @Override

@@ -14,6 +14,7 @@ public class RideRequestAdapter extends RecyclerView.Adapter<RideRequestAdapter.
     private List<RideRequest> requests;
     private OnRideActionListener listener;
     private boolean isUserVerified;
+    private String licenciaEstado;
 
     public interface OnRideActionListener {
         void onAccept(RideRequest request);
@@ -21,9 +22,10 @@ public class RideRequestAdapter extends RecyclerView.Adapter<RideRequestAdapter.
         void onDiscard(RideRequest request);
     }
 
-    public RideRequestAdapter(List<RideRequest> requests, boolean isUserVerified, OnRideActionListener listener) {   
+    public RideRequestAdapter(List<RideRequest> requests, boolean isUserVerified, String licenciaEstado, OnRideActionListener listener) {   
         this.requests = requests;
         this.isUserVerified = isUserVerified;
+        this.licenciaEstado = licenciaEstado;
         this.listener = listener;
     }
     @NonNull
@@ -107,30 +109,25 @@ public class RideRequestAdapter extends RecyclerView.Adapter<RideRequestAdapter.
             if (listener != null) listener.onViewMap(request);
         });
 
+        // Lógica de habilitación del botón de oferta según licencia
+        boolean tieneLicenciaActiva = "TRIAL_ACTIVO".equals(licenciaEstado) || "ACTIVO".equals(licenciaEstado);
+
         if (request.isHaRespondido()) {
             holder.btnAccept.setEnabled(false);
             holder.btnAccept.setAlpha(0.5f);
-            if (holder.btnAccept instanceof android.widget.TextView) {
-                ((android.widget.TextView) holder.btnAccept).setText("OFERTADO");
-            } else if (holder.btnAccept instanceof android.widget.Button) {
-                ((android.widget.Button) holder.btnAccept).setText("OFERTADO");
-            }
+            setTextToButton(holder.btnAccept, "OFERTADO");
         } else if (!isUserVerified) {
             holder.btnAccept.setEnabled(false);
             holder.btnAccept.setAlpha(0.5f);
-            if (holder.btnAccept instanceof android.widget.TextView) {
-                ((android.widget.TextView) holder.btnAccept).setText("PENDIENTE");
-            } else if (holder.btnAccept instanceof android.widget.Button) {
-                ((android.widget.Button) holder.btnAccept).setText("PENDIENTE");
-            }
+            setTextToButton(holder.btnAccept, "PENDIENTE");
+        } else if (!tieneLicenciaActiva) {
+            holder.btnAccept.setEnabled(false);
+            holder.btnAccept.setAlpha(0.5f);
+            setTextToButton(holder.btnAccept, "SIN LICENCIA");
         } else {
             holder.btnAccept.setEnabled(true);
             holder.btnAccept.setAlpha(1.0f);
-            if (holder.btnAccept instanceof android.widget.TextView) {
-                ((android.widget.TextView) holder.btnAccept).setText("OFERTAR");
-            } else if (holder.btnAccept instanceof android.widget.Button) {
-                ((android.widget.Button) holder.btnAccept).setText("OFERTAR");
-            }
+            setTextToButton(holder.btnAccept, "OFERTAR");
         }
 
         holder.btnAccept.setOnClickListener(v -> {
@@ -138,7 +135,7 @@ public class RideRequestAdapter extends RecyclerView.Adapter<RideRequestAdapter.
         });
 
         if (holder.btnDiscard != null) {
-            if (request.isHaRespondido()) {
+            if (request.isHaRespondido() || !tieneLicenciaActiva) {
                 holder.btnDiscard.setVisibility(View.GONE);
             } else {
                 holder.btnDiscard.setVisibility(View.VISIBLE);
@@ -151,6 +148,14 @@ public class RideRequestAdapter extends RecyclerView.Adapter<RideRequestAdapter.
 
     @Override
     public int getItemCount() { return requests != null ? requests.size() : 0; }
+
+    private void setTextToButton(View btn, String text) {
+        if (btn instanceof android.widget.TextView) {
+            ((android.widget.TextView) btn).setText(text);
+        } else if (btn instanceof android.widget.Button) {
+            ((android.widget.Button) btn).setText(text);
+        }
+    }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
         TextView tvPassengerName, tvPrice, tvDateTime;

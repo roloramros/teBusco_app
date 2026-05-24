@@ -48,6 +48,7 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
     private List<Vehicle> myVehicles = new ArrayList<>();
     private boolean isViewingRoute = false;
     private RideRequest pendingAutoRoute = null; // NUEVO
+    private String licenciaEstado = "PENDIENTE";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,6 +76,7 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
 
         processAutoRouteIntent(getIntent()); // NUEVO
         viewModel.fetchMyVehicles();
+        cargarEstadoLicencia(); // NUEVO
 
         // Nueva lógica de suscripción proactiva
         AuthResponse.User user = SessionManager.getInstance(this).getUser();
@@ -196,7 +198,23 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
     private void setupRecyclerView() {
         AuthResponse.User user = SessionManager.getInstance(this).getUser();
         boolean verified = user != null && user.isVerificado();
-        adapter = new RideRequestAdapter(radarRequests, verified, this);
+        adapter = new RideRequestAdapter(radarRequests, verified, licenciaEstado, this);
+    }
+
+    private void cargarEstadoLicencia() {
+        RetrofitClient.getService().getMiLicencia().enqueue(new Callback<ApiResponse<com.codram.terecojo.data.model.Licencia>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<com.codram.terecojo.data.model.Licencia>> call, Response<ApiResponse<com.codram.terecojo.data.model.Licencia>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    licenciaEstado = response.body().getData().getEstado();
+                    setupRecyclerView(); // Refrescar adapter con el nuevo estado
+                }
+            }
+            @Override
+            public void onFailure(Call<ApiResponse<com.codram.terecojo.data.model.Licencia>> call, Throwable t) {
+                // Fallback a estado previo
+            }
+        });
     }
 
     @Override
@@ -343,11 +361,20 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
 
         builder.setMessage(msg.toString());
 
-        // Botón principal: Ofertar
-        builder.setPositiveButton("OFERTAR", (dialog, which) -> onAccept(req));
+        // Lógica de habilitación según licencia
+        boolean tieneLicenciaActiva = "TRIAL_ACTIVO".equals(licenciaEstado) || "ACTIVO".equals(licenciaEstado);
 
-        // Botón neutral: No me interesa (solo si no ha ofertado ya)
-        if (!req.isHaRespondido()) {
+        if (!tieneLicenciaActiva) {
+            msg.append("\n\n⚠️ No tienes una licencia activa para realizar ofertas.");
+            builder.setMessage(msg.toString()); // Actualizar mensaje con la advertencia
+            builder.setPositiveButton("SIN LICENCIA", null);
+        } else {
+            // Botón principal: Ofertar
+            builder.setPositiveButton("OFERTAR", (dialog, which) -> onAccept(req));
+        }
+
+        // Botón neutral: No me interesa (solo si no ha ofertado ya y tiene licencia activa)
+        if (!req.isHaRespondido() && tieneLicenciaActiva) {
             builder.setNeutralButton("NO ME INTERESA", (dialog, which) -> onDiscard(req));
         }
 
@@ -357,8 +384,8 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
         androidx.appcompat.app.AlertDialog dialog = builder.create();
         dialog.show();
 
-        // Deshabilitar Ofertar si ya respondió
-        if (req.isHaRespondido()) {
+        // Deshabilitar Ofertar si ya respondió o si no tiene licencia
+        if (req.isHaRespondido() || !tieneLicenciaActiva) {
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setEnabled(false);
         }
 
@@ -401,6 +428,14 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
             Toast.makeText(this, "Tu cuenta está pendiente de verificación", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        // Lógica de licencia
+        boolean tieneLicenciaActiva = "TRIAL_ACTIVO".equals(licenciaEstado) || "ACTIVO".equals(licenciaEstado);
+        if (!tieneLicenciaActiva) {
+            Toast.makeText(this, "No tienes una licencia activa para operar", Toast.LENGTH_LONG).show();
+            return;
+        }
+
         showMakeOfferDialog(request);
     }
 
