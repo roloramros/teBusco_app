@@ -49,6 +49,9 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
     private boolean isViewingRoute = false;
     private RideRequest pendingAutoRoute = null; // NUEVO
     private String licenciaEstado = "PENDIENTE";
+    // Variables para visibilidad en mapa
+    private boolean estaVisible = false;
+    private android.content.BroadcastReceiver visibilidadReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,6 +76,9 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
         setupClearRouteButton();
         setupRefreshRadarButton();
         setupWindowInsets();
+
+        setupVisibilidadToggle();
+        registrarVisibilidadReceiver();
 
         processAutoRouteIntent(getIntent()); // NUEVO
         viewModel.fetchMyVehicles();
@@ -175,55 +181,77 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
     }
 
     private void setupVisibilidadToggle() {
-        // El FAB de visibilidad — se agrega al layout en el Paso 6F
-        if (binding.fabVisibilidad == null) return;
+        Log.d("DriverActivity", "setupVisibilidadToggle llamado");
+        
+        // Intentar obtenerlo por binding y por findViewById por seguridad
+        android.view.View fab = binding.fabVisibilidad;
+        if (fab == null) fab = findViewById(R.id.fabVisibilidad);
 
-        binding.fabVisibilidad.setOnClickListener(v -> {
+        if (fab == null) {
+            Log.e("DriverActivity", "fabVisibilidad NO encontrado en el layout");
+            return;
+        }
+
+        fab.setOnClickListener(v -> {
+            Log.d("DriverActivity", "¡CLICK DETECTADO en fabVisibilidad!");
+            Toast.makeText(this, "Intentando activar/desactivar visibilidad...", Toast.LENGTH_SHORT).show();
             if (estaVisible) {
-                // Desactivar
                 desactivarVisibilidad();
             } else {
-                // Activar — pedir ubicación y mostrar dialog de vehículo si aplica
                 activarVisibilidad();
             }
         });
     }
 
     private void activarVisibilidad() {
+        Log.d("DriverActivity", "activarVisibilidad llamado");
         // Verificar permiso de ubicación
         if (androidx.core.content.ContextCompat.checkSelfPermission(this,
                 android.Manifest.permission.ACCESS_FINE_LOCATION)
                 != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Log.d("DriverActivity", "Permiso de ubicación NO concedido");
             Toast.makeText(this, "Se necesita permiso de ubicación para activarte en el mapa", Toast.LENGTH_LONG).show();
             return;
         }
 
+        Log.d("DriverActivity", "Permiso de ubicación OK, pidiendo ubicación...");
         // Obtener la última ubicación conocida para enviarla al activarse
         com.google.android.gms.location.FusedLocationProviderClient client =
             com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(this);
 
         try {
-            client.getLastLocation().addOnSuccessListener(location -> {
-                if (location == null) {
-                    Toast.makeText(this, "No pudimos obtener tu ubicación. Asegúrate de tener el GPS activo.", Toast.LENGTH_LONG).show();
-                    return;
-                }
+            client.getCurrentLocation(com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, null)
+                .addOnSuccessListener(location -> {
+                    if (location == null) {
+                        Log.d("DriverActivity", "Ubicación obtenida es NULL");
+                        Toast.makeText(this, "No pudimos obtener tu ubicación actual. Verifica tu GPS.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
 
-                double lat = location.getLatitude();
-                double lng = location.getLongitude();
+                    double lat = location.getLatitude();
+                    double lng = location.getLongitude();
+                    Log.d("DriverActivity", "Ubicación obtenida: " + lat + ", " + lng);
 
-                if (myVehicles.isEmpty()) {
-                    // Sin vehículos → activar sin vehiculo_id
-                    confirmarActivacion(lat, lng, null);
-                } else if (myVehicles.size() == 1) {
-                    // Un solo vehículo → activar directamente
-                    confirmarActivacion(lat, lng, myVehicles.get(0).getId());
-                } else {
-                    // Varios vehículos → mostrar dialog de selección
-                    mostrarDialogSeleccionVehiculo(lat, lng);
-                }
-            });
+                    if (myVehicles.isEmpty()) {
+                        Log.d("DriverActivity", "No hay vehículos registrados");
+                        // Sin vehículos → activar sin vehiculo_id
+                        confirmarActivacion(lat, lng, null);
+                    } else if (myVehicles.size() == 1) {
+                        Log.d("DriverActivity", "1 vehículo registrado: " + myVehicles.get(0).getId());
+                        // Un solo vehículo → activar directamente
+                        confirmarActivacion(lat, lng, myVehicles.get(0).getId());
+                    } else {
+                        Log.d("DriverActivity", "Varios vehículos registrados: " + myVehicles.size());
+                        // Varios vehículos → mostrar dialog de selección
+                        mostrarDialogSeleccionVehiculo(lat, lng);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("DriverActivity", "Fallo al obtener ubicación actual", e);
+                    Toast.makeText(this, "Error al obtener ubicación", Toast.LENGTH_SHORT).show();
+                });
         } catch (SecurityException e) {
+            Log.e("DriverActivity", "Error de seguridad al pedir ubicación", e);
             Toast.makeText(this, "Error de permisos de ubicación", Toast.LENGTH_SHORT).show();
         }
     }
@@ -261,8 +289,15 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
                         Toast.makeText(DriverActivity.this,
                             "¡Estás visible! Los pasajeros pueden encontrarte.", Toast.LENGTH_SHORT).show();
                     } else {
-                        Toast.makeText(DriverActivity.this,
-                            "No se pudo activar la visibilidad. Verifica tu licencia.", Toast.LENGTH_LONG).show();
+                        try {
+                            String errorJson = response.errorBody().string();
+                            ApiResponse<?> errorResp = new com.google.gson.Gson().fromJson(errorJson, ApiResponse.class);
+                            String msg = errorResp.getMessage() != null ? errorResp.getMessage() : "No se pudo activar la visibilidad";
+                            Toast.makeText(DriverActivity.this, msg, Toast.LENGTH_LONG).show();
+                        } catch (Exception e) {
+                            Toast.makeText(DriverActivity.this,
+                                "No se pudo activar la visibilidad. Verifica tu licencia.", Toast.LENGTH_LONG).show();
+                        }
                     }
                 }
 

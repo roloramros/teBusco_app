@@ -17,6 +17,8 @@ import com.codram.terecojo.data.model.SesionActiva;
 import com.codram.terecojo.data.model.Licencia;
 import com.codram.terecojo.data.model.LoginRequest;
 import com.codram.terecojo.data.model.StatsResponse;
+import com.codram.terecojo.data.model.ToggleVisibilidadRequest;
+import com.codram.terecojo.data.model.UbicacionRequest;
 import com.codram.terecojo.data.model.Vehicle;
 import com.codram.terecojo.data.model.VehicleRequest;
 

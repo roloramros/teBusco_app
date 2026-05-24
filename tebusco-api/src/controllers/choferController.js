@@ -23,10 +23,11 @@ export const toggleVisibilidad = async (req, res, next) => {
       return badRequest(res, 'El campo "visible" debe ser true o false')
     }
 
-    // Obtener chofer
+    // Obtener chofer y su licencia
     const { rows: choferRows } = await query(
-      `SELECT c.id, c.estado
+      `SELECT c.id, c.estado, l.estado AS licencia_estado
        FROM choferes c
+       LEFT JOIN licencias_chofer l ON l.chofer_id = c.id
        WHERE c.usuario_id = $1`,
       [usuarioId]
     )
@@ -36,10 +37,15 @@ export const toggleVisibilidad = async (req, res, next) => {
     }
 
     const chofer = choferRows[0]
+    const tieneLicenciaActiva = ['ACTIVO', 'TRIAL_ACTIVO'].includes(chofer.licencia_estado)
 
     // Si intenta activarse pero no puede operar, rechazar
+    if (visible && !tieneLicenciaActiva) {
+      return forbidden(res, 'No puedes activarte en el mapa. Tu licencia está inactiva o ha expirado.')
+    }
+
     if (visible && chofer.estado !== 'disponible') {
-      return forbidden(res, 'No puedes activarte en el mapa. Tu licencia está inactiva o tu cuenta no ha sido aprobada.')
+      return forbidden(res, 'No puedes activarte en el mapa. Tu cuenta aún no ha sido aprobada por un administrador.')
     }
 
     if (visible) {
@@ -126,9 +132,10 @@ export const actualizarUbicacion = async (req, res, next) => {
     }
 
     const { rows: choferRows } = await query(
-      `SELECT id, estado, visible_en_mapa
-       FROM choferes
-       WHERE usuario_id = $1`,
+      `SELECT c.id, c.estado, c.visible_en_mapa, l.estado AS licencia_estado
+       FROM choferes c
+       LEFT JOIN licencias_chofer l ON l.chofer_id = c.id
+       WHERE c.usuario_id = $1`,
       [usuarioId]
     )
 
@@ -137,9 +144,10 @@ export const actualizarUbicacion = async (req, res, next) => {
     }
 
     const chofer = choferRows[0]
+    const tieneLicenciaActiva = ['ACTIVO', 'TRIAL_ACTIVO'].includes(chofer.licencia_estado)
 
     // Si ya no puede operar, indicarle al ForegroundService que se detenga
-    if (!chofer.visible_en_mapa || chofer.estado !== 'disponible') {
+    if (!chofer.visible_en_mapa || chofer.estado !== 'disponible' || !tieneLicenciaActiva) {
       return success(res, { debe_detenerse: true },
         'Tu visibilidad fue desactivada. El servicio de ubicación debe detenerse.')
     }

@@ -63,6 +63,7 @@ dependencies {
     implementation(libs.lifecycle.livedata)
     implementation(libs.google.maps)
     implementation(libs.google.places)
+    implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation(libs.glide)
     implementation(libs.exifinterface)
     implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
