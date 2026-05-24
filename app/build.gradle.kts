@@ -65,6 +65,7 @@ dependencies {
     implementation(libs.google.places)
     implementation(libs.glide)
     implementation(libs.exifinterface)
+    implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
     annotationProcessor(libs.glide.compiler)
 
     testImplementation(libs.junit)

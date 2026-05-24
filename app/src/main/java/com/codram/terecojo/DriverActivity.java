@@ -174,6 +174,170 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
         });
     }
 
+    private void setupVisibilidadToggle() {
+        // El FAB de visibilidad — se agrega al layout en el Paso 6F
+        if (binding.fabVisibilidad == null) return;
+
+        binding.fabVisibilidad.setOnClickListener(v -> {
+            if (estaVisible) {
+                // Desactivar
+                desactivarVisibilidad();
+            } else {
+                // Activar — pedir ubicación y mostrar dialog de vehículo si aplica
+                activarVisibilidad();
+            }
+        });
+    }
+
+    private void activarVisibilidad() {
+        // Verificar permiso de ubicación
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this,
+                android.Manifest.permission.ACCESS_FINE_LOCATION)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "Se necesita permiso de ubicación para activarte en el mapa", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        // Obtener la última ubicación conocida para enviarla al activarse
+        com.google.android.gms.location.FusedLocationProviderClient client =
+            com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(this);
+
+        try {
+            client.getLastLocation().addOnSuccessListener(location -> {
+                if (location == null) {
+                    Toast.makeText(this, "No pudimos obtener tu ubicación. Asegúrate de tener el GPS activo.", Toast.LENGTH_LONG).show();
+                    return;
+                }
+
+                double lat = location.getLatitude();
+                double lng = location.getLongitude();
+
+                if (myVehicles.isEmpty()) {
+                    // Sin vehículos → activar sin vehiculo_id
+                    confirmarActivacion(lat, lng, null);
+                } else if (myVehicles.size() == 1) {
+                    // Un solo vehículo → activar directamente
+                    confirmarActivacion(lat, lng, myVehicles.get(0).getId());
+                } else {
+                    // Varios vehículos → mostrar dialog de selección
+                    mostrarDialogSeleccionVehiculo(lat, lng);
+                }
+            });
+        } catch (SecurityException e) {
+            Toast.makeText(this, "Error de permisos de ubicación", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void mostrarDialogSeleccionVehiculo(double lat, double lng) {
+        String[] nombres = myVehicles.stream()
+            .map(v -> v.getMarca() + " · " + v.getPlaca()
+                + (v.getCapacidadPasajeros() != null ? " · " + v.getCapacidadPasajeros() + " pax" : ""))
+            .toArray(String[]::new);
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("¿Con qué vehículo sales hoy?")
+            .setItems(nombres, (dialog, which) -> {
+                String vehiculoId = myVehicles.get(which).getId();
+                confirmarActivacion(lat, lng, vehiculoId);
+            })
+            .setNegativeButton("Cancelar", null)
+            .show();
+    }
+
+    private void confirmarActivacion(double lat, double lng, String vehiculoId) {
+        com.codram.terecojo.data.model.ToggleVisibilidadRequest request = new com.codram.terecojo.data.model.ToggleVisibilidadRequest(true, lat, lng, vehiculoId);
+
+        RetrofitClient.getService().toggleVisibilidad(request).enqueue(
+            new retrofit2.Callback<ApiResponse<Void>>() {
+                @Override
+                public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                    if (response.isSuccessful()) {
+                        estaVisible = true;
+                        actualizarBotonVisibilidad();
+                        // Iniciar el ForegroundService
+                        Intent serviceIntent = new Intent(DriverActivity.this,
+                            com.codram.terecojo.utils.LocationForegroundService.class);
+                        startForegroundService(serviceIntent);
+                        Toast.makeText(DriverActivity.this,
+                            "¡Estás visible! Los pasajeros pueden encontrarte.", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(DriverActivity.this,
+                            "No se pudo activar la visibilidad. Verifica tu licencia.", Toast.LENGTH_LONG).show();
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                    Toast.makeText(DriverActivity.this, "Error de red", Toast.LENGTH_SHORT).show();
+                }
+            }
+        );
+    }
+
+    private void desactivarVisibilidad() {
+        com.codram.terecojo.data.model.ToggleVisibilidadRequest request = new com.codram.terecojo.data.model.ToggleVisibilidadRequest(false);
+
+        RetrofitClient.getService().toggleVisibilidad(request).enqueue(
+            new retrofit2.Callback<ApiResponse<Void>>() {
+                @Override
+                public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                    // Detener el service independientemente de la respuesta
+                    Intent serviceIntent = new Intent(DriverActivity.this,
+                        com.codram.terecojo.utils.LocationForegroundService.class);
+                    stopService(serviceIntent);
+
+                    estaVisible = false;
+                    actualizarBotonVisibilidad();
+                    Toast.makeText(DriverActivity.this,
+                        "Ya no eres visible en el mapa.", Toast.LENGTH_SHORT).show();
+                }
+
+                @Override
+                public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                    // Aunque falle la red, detener el service localmente
+                    Intent serviceIntent = new Intent(DriverActivity.this,
+                        com.codram.terecojo.utils.LocationForegroundService.class);
+                    stopService(serviceIntent);
+                    estaVisible = false;
+                    actualizarBotonVisibilidad();
+                }
+            }
+        );
+    }
+
+    private void actualizarBotonVisibilidad() {
+        if (binding.fabVisibilidad == null) return;
+        if (estaVisible) {
+            binding.fabVisibilidad.setImageResource(android.R.drawable.presence_online);
+            binding.fabVisibilidad.setBackgroundTintList(
+                androidx.core.content.ContextCompat.getColorStateList(this, R.color.success_green));
+            binding.fabVisibilidad.setContentDescription("Desactivar visibilidad en el mapa");
+        } else {
+            binding.fabVisibilidad.setImageResource(android.R.drawable.presence_invisible);
+            binding.fabVisibilidad.setBackgroundTintList(
+                androidx.core.content.ContextCompat.getColorStateList(this, R.color.gray_dark));
+            binding.fabVisibilidad.setContentDescription("Activar visibilidad en el mapa");
+        }
+    }
+
+    private void registrarVisibilidadReceiver() {
+        visibilidadReceiver = new android.content.BroadcastReceiver() {
+            @Override
+            public void onReceive(android.content.Context context, Intent intent) {
+                // El service fue detenido remotamente
+                estaVisible = false;
+                actualizarBotonVisibilidad();
+                Toast.makeText(DriverActivity.this,
+                    "Tu visibilidad fue desactivada automáticamente.", Toast.LENGTH_LONG).show();
+            }
+        };
+
+        androidx.localbroadcastmanager.content.LocalBroadcastManager
+            .getInstance(this)
+            .registerReceiver(visibilidadReceiver,
+                new android.content.IntentFilter("com.codram.terecojo.VISIBILIDAD_DESACTIVADA"));
+    }
+
     private void setupClearRouteButton() {
         binding.fabClearRoute.setOnClickListener(v -> {
             clearRouteMarkersAndPolylines();

@@ -163,4 +163,10 @@ public interface ApiService {
 
     @DELETE("api/auth/sesiones")
     Call<ApiResponse<RevocarTodasResponse>> revocarTodasLasSesiones();
+
+    @PUT("api/choferes/visibilidad")
+    Call<ApiResponse<Void>> toggleVisibilidad(@Body ToggleVisibilidadRequest request);
+
+    @PUT("api/choferes/ubicacion")
+    Call<ApiResponse<java.util.Map<String, Object>>> actualizarUbicacion(@Body UbicacionRequest request);
 }
