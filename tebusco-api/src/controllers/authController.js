@@ -117,10 +117,17 @@ export const registro = async (req, res) => {
 
     // 6. Si es chofer, crear el registro extendido en la tabla choferes
     if (tipo === 'chofer') {
-      await client.query(
+      const { rows: choferInserted } = await client.query(
         `INSERT INTO choferes (usuario_id, provincia_base_id, municipio_base_id)
-         VALUES ($1, $2, $3)`,
+         VALUES ($1, $2, $3) RETURNING id`,
         [usuario.id, provincia_id || null, municipio_id || null]
+      )
+
+      // ← NUEVO: Crear licencia en trial de 45 días automáticamente
+      await client.query(
+        `INSERT INTO licencias_chofer (chofer_id)
+         VALUES ($1)`,
+        [choferInserted[0].id]
       )
     }
 

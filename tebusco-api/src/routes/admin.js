@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { authenticate, authorize } from '../middleware/auth.js'      
 import * as adminController from '../controllers/adminController.js' 
+import * as licenciaController from '../controllers/licenciaController.js' 
 
 const router = Router()
 
@@ -26,6 +27,13 @@ router.get('/solicitudes', adminController.getSolicitudes)
 
 // Notificaciones
 router.post('/notificaciones/broadcast', adminController.broadcastNotification)
+
+// Gestión de Licencias
+router.get('/licencias',                              licenciaController.getLicencias)
+router.get('/licencias/stats',                        licenciaController.getLicenciasStats)
+router.get('/licencias/:chofer_id',                   licenciaController.getLicenciaByChofer)
+router.post('/licencias/:chofer_id/registrar-pago',   licenciaController.registrarPago)
+router.post('/licencias/:chofer_id/cambiar-estado',   licenciaController.cambiarEstado)
 
 export default router
 

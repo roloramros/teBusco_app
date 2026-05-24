@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 const menuItems = [
   { path: '/dashboard', label: 'Dashboard', icon: '🏠' },
   { path: '/choferes', label: 'Choferes', icon: '🚗' },
+  { path: '/licencias', label: 'Licencias', icon: '🪪' },
   { path: '/usuarios', label: 'Usuarios', icon: '👥' },
   { path: '/solicitudes', label: 'Solicitudes', icon: '📋' },
   { path: '/notificaciones', label: 'Notificaciones', icon: '🔔' },

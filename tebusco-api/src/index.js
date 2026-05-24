@@ -15,6 +15,7 @@ import adminRoutes from './routes/admin.js'
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
 // NUEVO
 import { startExpireSolicitudesJob } from './jobs/expireSolicitudes.js'
+import { startExpireLicenciasJob } from './jobs/expireLicencias.js'
 
 const app  = express()
 const PORT = process.env.PORT || 3000
@@ -124,6 +125,7 @@ const startServer = async () => {
 
       // NUEVO
       startExpireSolicitudesJob()
+      startExpireLicenciasJob()  // ← NUEVO
     }).on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
         console.error(`❌ El puerto ${PORT} ya está en uso`)

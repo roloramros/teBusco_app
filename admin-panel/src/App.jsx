@@ -9,6 +9,7 @@ import Choferes from './pages/Choferes';
 import Usuarios from './pages/Usuarios';
 import Solicitudes from './pages/Solicitudes';
 import Notificaciones from './pages/Notificaciones';
+import Licencias from './pages/Licencias';
 
 const PrivateRoute = () => {
   const { usuario, loading } = useAuth();
@@ -28,6 +29,7 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/choferes" element={<Choferes />} />
+              <Route path="/licencias" element={<Licencias />} />
               <Route path="/usuarios" element={<Usuarios />} />
               <Route path="/solicitudes" element={<Solicitudes />} />
               <Route path="/notificaciones" element={<Notificaciones />} />

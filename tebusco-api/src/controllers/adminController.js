@@ -199,6 +199,14 @@ export const aprobarChofer = async (req, res, next) => {
 
     await client.query('UPDATE usuarios SET verificado = true WHERE id = $1', [chofer.user_id])
 
+    // ← NUEVO: Crear licencia si no existe (para choferes legacy)
+    await client.query(
+      `INSERT INTO licencias_chofer (chofer_id)
+       VALUES ($1)
+       ON CONFLICT (chofer_id) DO NOTHING`,
+      [id]  // id aquí es el chofer.id, no el usuario.id
+    )
+
     await client.query('COMMIT')
 
     // Notificación fuera de transacción
