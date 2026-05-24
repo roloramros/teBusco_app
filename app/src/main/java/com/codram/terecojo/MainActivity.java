@@ -39,6 +39,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.codram.terecojo.data.model.AuthResponse;
+import com.codram.terecojo.data.model.ChoferDisponible;
 import com.codram.terecojo.utils.SessionManager;
 import com.codram.terecojo.data.model.SelectionMode;
 import com.codram.terecojo.ui.viewmodel.MainViewModel;
@@ -81,6 +82,12 @@ public class MainActivity extends BaseActivity {
     
     private double lastCalculatedDistance = 0;
 
+    // Modo exploración de choferes
+    private boolean modoExploracion = false;
+    private List<com.google.android.gms.maps.model.Marker> choferMarkers = new ArrayList<>();
+    private com.google.android.material.bottomsheet.BottomSheetBehavior<View> choferSheetBehavior;
+    private View choferBottomSheet;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -96,6 +103,7 @@ public class MainActivity extends BaseActivity {
         setupCurrencySpinner();
         setupMapInteractions();
         setupWindowInsets();
+        setupModoExploracion();
 
         // Configurar clic en el botón de menú flotante
         binding.btnMenu.setOnClickListener(v -> {
@@ -137,12 +145,22 @@ public class MainActivity extends BaseActivity {
             return insets;
         });
 
+        ViewCompat.setOnApplyWindowInsetsListener(binding.fabExplorar, (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            android.view.ViewGroup.MarginLayoutParams params = (android.view.ViewGroup.MarginLayoutParams) v.getLayoutParams();
+            params.rightMargin = (int) (16 * getResources().getDisplayMetrics().density) + systemBars.right;
+            // Primero en la esquina superior derecha (16dp)
+            params.topMargin = (int) (16 * getResources().getDisplayMetrics().density) + systemBars.top;
+            v.setLayoutParams(params);
+            return insets;
+        });
+
         ViewCompat.setOnApplyWindowInsetsListener(binding.fabMyLocation, (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             android.view.ViewGroup.MarginLayoutParams params = (android.view.ViewGroup.MarginLayoutParams) v.getLayoutParams();
             params.rightMargin = (int) (16 * getResources().getDisplayMetrics().density) + systemBars.right;
-            // Reseteamos bottomMargin ya que ahora se posiciona respecto al ancla
-            params.bottomMargin = (int) (16 * getResources().getDisplayMetrics().density);
+            // Debajo del botón de explorar (16 + 40 + 12 = 68dp aprox para mini FABs)
+            params.topMargin = (int) (68 * getResources().getDisplayMetrics().density) + systemBars.top;
             v.setLayoutParams(params);
             return insets;
         });
@@ -170,6 +188,15 @@ public class MainActivity extends BaseActivity {
             v.setLayoutParams(params);
             return insets;
         });
+
+        // Asegurar que el panel de choferes no quede debajo de la barra de navegación
+        if (choferBottomSheet != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(choferBottomSheet, (v, insets) -> {
+                Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+                v.setPadding(v.getPaddingLeft(), v.getPaddingTop(), v.getPaddingRight(), systemBars.bottom + (int) (16 * getResources().getDisplayMetrics().density));
+                return insets;
+            });
+        }
     }
 
     private void setupBottomSheet() {
@@ -518,7 +545,18 @@ public class MainActivity extends BaseActivity {
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
         super.onMapReady(googleMap);
-        
+
+        mMap.setOnMarkerClickListener(marker -> {
+            Object tag = marker.getTag();
+            if (tag instanceof ChoferDisponible) {
+                // Marcador de chofer disponible
+                mostrarInfoChofer((ChoferDisponible) tag);
+                return true;
+            }
+            // Comportamiento por defecto para otros marcadores
+            return false;
+        });
+
         mMap.setOnCameraMoveStartedListener(reason -> {
             if (currentSelectionMode != SelectionMode.NONE) {
                 binding.ivCentralPin.animate().translationY(-20f).setDuration(200).start();
@@ -718,6 +756,240 @@ public class MainActivity extends BaseActivity {
         stopViews.add(stopView);
         updateAddStopButtonVisibility();
         bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+    }
+
+    private void setupModoExploracion() {
+        // Inflar el BottomSheet del chofer
+        choferBottomSheet = getLayoutInflater().inflate(R.layout.bottom_sheet_chofer, binding.mainContent, false);
+        binding.mainContent.addView(choferBottomSheet);
+
+        // Ahora que está en el layout, podemos obtener su comportamiento
+        choferSheetBehavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(choferBottomSheet);
+        choferSheetBehavior.setHideable(true);
+        choferSheetBehavior.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_HIDDEN);
+
+        // Ajustar insets para que no quede debajo de la barra de navegación del sistema
+        ViewCompat.setOnApplyWindowInsetsListener(choferBottomSheet, (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            // Aplicamos padding extra (32dp) para asegurar que se vea todo el contenido
+            v.setPadding(v.getPaddingLeft(), v.getPaddingTop(), v.getPaddingRight(), 
+                systemBars.bottom + (int) (32 * getResources().getDisplayMetrics().density));
+            return insets;
+        });
+
+        // FAB de exploración
+        if (binding.fabExplorar == null) return;
+
+        binding.fabExplorar.setOnClickListener(v -> {
+            if (modoExploracion) {
+                desactivarModoExploracion();
+            } else {
+                activarModoExploracion();
+            }
+        });
+    }
+
+    private void activarModoExploracion() {
+        modoExploracion = true;
+
+        // Actualizar FAB
+        binding.fabExplorar.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
+        binding.fabExplorar.setContentDescription("Salir del modo exploración");
+
+        // Ocultar elementos del modo publicación
+        binding.bottomSheet.setVisibility(View.GONE);
+        binding.ivCentralPin.setVisibility(View.GONE);
+        binding.searchBarContainer.setVisibility(View.GONE);
+        binding.fabConfirmLocation.setVisibility(View.GONE);
+
+        // Limpiar marcadores de ruta del pasajero
+        if (originMarker != null) originMarker.setVisible(false);
+        if (destinationMarker != null) destinationMarker.setVisible(false);
+        for (com.google.android.gms.maps.model.Marker m : stopMarkers) {
+            if (m != null) m.setVisible(false);
+        }
+
+        // Cargar choferes
+        cargarChoferesDisponibles();
+    }
+
+    private void desactivarModoExploracion() {
+        modoExploracion = false;
+
+        // Actualizar FAB
+        binding.fabExplorar.setImageResource(android.R.drawable.ic_menu_compass);
+        binding.fabExplorar.setContentDescription("Ver choferes disponibles cerca");
+
+        // Limpiar marcadores de choferes
+        for (com.google.android.gms.maps.model.Marker m : choferMarkers) m.remove();
+        choferMarkers.clear();
+
+        // Ocultar BottomSheet del chofer
+        if (choferSheetBehavior != null) {
+            choferSheetBehavior.setState(
+                    com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_HIDDEN);
+        }
+
+        // Restaurar elementos del modo publicación
+        binding.bottomSheet.setVisibility(View.VISIBLE);
+        if (originMarker != null) originMarker.setVisible(true);
+        if (destinationMarker != null) destinationMarker.setVisible(true);
+        for (com.google.android.gms.maps.model.Marker m : stopMarkers) {
+            if (m != null) m.setVisible(true);
+        }
+    }
+
+    private void cargarChoferesDisponibles() {
+        if (mMap == null) return;
+
+        // Usar la posición actual del centro del mapa como referencia
+        com.google.android.gms.maps.model.LatLng center = mMap.getCameraPosition().target;
+
+        RetrofitClient.getService()
+                .getChoferesDisponibles(center.latitude, center.longitude)
+                .enqueue(new retrofit2.Callback<ApiResponse<List<ChoferDisponible>>>() {
+                    @Override
+                    public void onResponse(
+                            retrofit2.Call<ApiResponse<List<ChoferDisponible>>> call,
+                            retrofit2.Response<ApiResponse<List<ChoferDisponible>>> response
+                    ) {
+                        if (!modoExploracion) return; // El usuario salió antes de que llegara la respuesta
+
+                        // Limpiar marcadores anteriores
+                        for (com.google.android.gms.maps.model.Marker m : choferMarkers) m.remove();
+                        choferMarkers.clear();
+
+                        if (response.isSuccessful() && response.body() != null
+                                && response.body().getData() != null) {
+                            List<ChoferDisponible> choferes = response.body().getData();
+
+                            if (choferes.isEmpty()) {
+                                Toast.makeText(MainActivity.this,
+                                        "No hay choferes disponibles en este momento cerca de ti.",
+                                        Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+
+                            for (ChoferDisponible chofer : choferes) {
+                                com.google.android.gms.maps.model.LatLng pos =
+                                        new com.google.android.gms.maps.model.LatLng(
+                                                chofer.getLat(), chofer.getLng());
+
+                                com.google.android.gms.maps.model.Marker marker = mMap.addMarker(
+                                        new com.google.android.gms.maps.model.MarkerOptions()
+                                                .position(pos)
+                                                .title(chofer.getNombre())
+                                                .snippet(chofer.getVehiculoMarca() != null
+                                                        ? chofer.getVehiculoMarca() + " · " + chofer.getVehiculoPlaca()
+                                                        : "Chofer disponible")
+                                                .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory
+                                                        .defaultMarker(
+                                                                com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_GREEN))
+                                );
+
+                                if (marker != null) {
+                                    marker.setTag(chofer);
+                                    choferMarkers.add(marker);
+                                }
+                            }
+
+                            Toast.makeText(MainActivity.this,
+                                    choferes.size() + " chofer" + (choferes.size() == 1 ? "" : "es")
+                                            + " disponible" + (choferes.size() == 1 ? "" : "s") + " cerca",
+                                    Toast.LENGTH_SHORT).show();
+
+                        } else {
+                            Toast.makeText(MainActivity.this,
+                                    "No hay choferes disponibles en este momento.", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(
+                            retrofit2.Call<ApiResponse<List<ChoferDisponible>>> call, Throwable t
+                    ) {
+                        if (modoExploracion) {
+                            Toast.makeText(MainActivity.this,
+                                    "Error de red. Intenta de nuevo.", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+    }
+
+    private void mostrarInfoChofer(ChoferDisponible chofer) {
+        if (choferBottomSheet == null || choferSheetBehavior == null) return;
+
+        // IDs del rediseño multinivel
+        android.widget.TextView tvNombre = choferBottomSheet.findViewById(R.id.tvChoferNombre);
+        android.widget.TextView tvStats = choferBottomSheet.findViewById(R.id.tvChoferStats);
+        android.widget.TextView tvVehiculoResumen = choferBottomSheet.findViewById(R.id.tvVehiculoResumen);
+        android.widget.TextView tvTelefono = choferBottomSheet.findViewById(R.id.tvChoferTelefono);
+        android.widget.ImageView ivFoto = choferBottomSheet.findViewById(R.id.ivVehiculoFoto);
+        android.widget.TextView tvInterprovincial = choferBottomSheet.findViewById(R.id.tvInterprovincial);
+        android.widget.ImageButton btnCall = choferBottomSheet.findViewById(R.id.btnCallChofer);
+
+        // 1. Nombre (Bold)
+        tvNombre.setText(chofer.getNombre());
+
+        // 2. Puntuación y Viajes
+        String rating = chofer.getCalificacionPromedio() > 0 
+            ? String.format(java.util.Locale.getDefault(), "%.1f ★", chofer.getCalificacionPromedio())
+            : "Nuevo";
+        String trips = chofer.getTotalViajes() + " viajes";
+        tvStats.setText(rating + " · " + trips);
+
+        // 3. Info del vehículo (Marca y Capacidad)
+        StringBuilder vehiculoBuilder = new StringBuilder();
+        if (chofer.getVehiculoMarca() != null) {
+            vehiculoBuilder.append(chofer.getVehiculoMarca());
+            if (chofer.getVehiculoModelo() != null) vehiculoBuilder.append(" ").append(chofer.getVehiculoModelo());
+        } else {
+            vehiculoBuilder.append("Sin vehículo asignado");
+        }
+        
+        if (chofer.getCapacidadPasajeros() != null) {
+            vehiculoBuilder.append(" · ").append(chofer.getCapacidadPasajeros()).append(" pax");
+        }
+        
+        tvVehiculoResumen.setText(vehiculoBuilder.toString());
+
+        // 4. Miniatura de la foto con Glide (si está disponible)
+        if (chofer.getVehiculoFoto() != null && !chofer.getVehiculoFoto().isEmpty()) {
+            String photoUrl = RetrofitClient.BASE_URL + chofer.getVehiculoFoto();
+            com.bumptech.glide.Glide.with(this)
+                .load(photoUrl)
+                .placeholder(R.drawable.ic_logo)
+                .centerCrop()
+                .into(ivFoto);
+                
+            // Click para pantalla completa
+            ivFoto.setOnClickListener(v -> {
+                android.widget.ImageView fullImage = new android.widget.ImageView(this);
+                fullImage.setAdjustViewBounds(true);
+                com.bumptech.glide.Glide.with(this).load(photoUrl).into(fullImage);
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setView(fullImage)
+                    .show();
+            });
+        } else {
+            ivFoto.setImageResource(R.drawable.ic_logo);
+            ivFoto.setOnClickListener(null);
+        }
+
+        // 5. Teléfono y Llamada
+        tvTelefono.setText(chofer.getTelefono() != null ? chofer.getTelefono() : "Sin teléfono");
+        btnCall.setOnClickListener(v -> {
+            if (chofer.getTelefono() != null) {
+                Intent intent = new Intent(Intent.ACTION_DIAL);
+                intent.setData(android.net.Uri.parse("tel:" + chofer.getTelefono()));
+                startActivity(intent);
+            }
+        });
+
+        // Tag Interprovincial
+        tvInterprovincial.setVisibility(chofer.isOperaInterprovincial() ? View.VISIBLE : View.GONE);
+
+        choferSheetBehavior.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_COLLAPSED);
     }
 
     private void updateAddStopButtonVisibility() {

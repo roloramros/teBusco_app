@@ -247,12 +247,26 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="16dp"
-            app:layout_anchor="@id/bottomSheet"
-            app:layout_anchorGravity="top|end"
+            android:layout_gravity="top|end"
+            app:fabSize="mini"
             android:contentDescription="Mi ubicación"
             android:src="@drawable/ic_my_location"
             app:backgroundTint="@color/white"
             app:tint="@color/primary_blue"
+            android:elevation="20dp" />
+
+        <!-- FAB: Ver choferes disponibles -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabExplorar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            android:layout_gravity="top|end"
+            app:fabSize="mini"
+            android:contentDescription="Ver choferes disponibles cerca"
+            android:src="@android:drawable/ic_menu_compass"
+            app:backgroundTint="@color/primary_blue"
+            app:tint="@color/white"
             android:elevation="20dp" />
 
         <!-- FAB de Confirmar Ubicación -->

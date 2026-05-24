@@ -11,7 +11,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class RetrofitClient {
     // Usar 10.0.2.2 para acceder al localhost de la máquina desde el emulador Android
-    private static final String BASE_URL = BuildConfig.API_BASE_URL;
+    public static final String BASE_URL = BuildConfig.API_BASE_URL;
     
     // NUEVO
     private static Context appContext = null;

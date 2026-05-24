@@ -1,5 +1,6 @@
 package com.codram.terecojo.data.remote;
 
+import com.codram.terecojo.data.model.ChoferDisponible;
 import com.codram.terecojo.data.model.ApiResponse;
 import com.codram.terecojo.data.model.AuthResponse;
 import com.codram.terecojo.data.model.FinalizeRideRequest;
@@ -15,7 +16,6 @@ import com.codram.terecojo.data.model.RevocarTodasResponse;
 import com.codram.terecojo.data.model.RideRequest;
 import com.codram.terecojo.data.model.SesionActiva;
 import com.codram.terecojo.data.model.Licencia;
-import com.codram.terecojo.data.model.LoginRequest;
 import com.codram.terecojo.data.model.StatsResponse;
 import com.codram.terecojo.data.model.ToggleVisibilidadRequest;
 import com.codram.terecojo.data.model.UbicacionRequest;
@@ -36,6 +36,7 @@ import retrofit2.http.POST;
 import retrofit2.http.PUT;
 import retrofit2.http.Part;
 import retrofit2.http.Path;
+import retrofit2.http.Query;
 
 public interface ApiService {
 
@@ -65,6 +66,12 @@ public interface ApiService {
 
     @GET("api/auth/me")
     Call<ApiResponse<AuthResponse.User>> getMe();
+
+    @GET("api/choferes/disponibles")
+    Call<ApiResponse<List<ChoferDisponible>>> getChoferesDisponibles(
+            @Query("lat") double lat,
+            @Query("lng") double lng
+    );
 
     @GET("api/geo/vehicle-types")
     Call<ApiResponse<List<String>>> getVehicleTypes();

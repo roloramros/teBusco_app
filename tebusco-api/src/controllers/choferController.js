@@ -209,8 +209,6 @@ export const getChoferesDisponibles = async (req, res, next) => {
         v.id            AS vehiculo_id,
         v.tipo          AS vehiculo_tipo,
         v.marca         AS vehiculo_marca,
-        v.modelo        AS vehiculo_modelo,
-        v.color         AS vehiculo_color,
         v.placa         AS vehiculo_placa,
         v.capacidad_pasajeros,
         v.foto_url      AS vehiculo_foto
