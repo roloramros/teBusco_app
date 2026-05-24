@@ -37,7 +37,7 @@ export const getLicencias = async (req, res, next) => {
 
     const sql = `
       SELECT
-        l.id, l.estado, l.trial_inicio, l.trial_fin,
+        l.chofer_id AS id, l.estado, l.trial_inicio, l.trial_fin,
         l.suscripcion_inicio, l.suscripcion_fin,
         l.ultimo_pago, l.monto_mensual, l.notas,
         l.creada_en, l.actualizada_en,

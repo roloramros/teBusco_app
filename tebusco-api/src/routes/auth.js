@@ -8,7 +8,8 @@ import {
   updateFcmToken,
   getMisSesiones,
   revocarSesion,
-  revocarTodasLasSesiones 
+  revocarTodasLasSesiones,
+  getMiLicencia 
 } from '../controllers/authController.js'
 import { authenticate } from '../middleware/auth.js'
 import { validar } from '../middleware/validar.js'
@@ -94,5 +95,7 @@ router.post('/update-fcm-token', authenticate, updateFcmToken)
 router.get('/sesiones', authenticate, getMisSesiones)
 router.delete('/sesiones/:id', authenticate, revocarSesion)
 router.delete('/sesiones', authenticate, revocarTodasLasSesiones)
+
+router.get('/mi-licencia', authenticate, getMiLicencia)
 
 export default router

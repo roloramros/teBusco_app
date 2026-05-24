@@ -447,3 +447,58 @@ export const revocarTodasLasSesiones = async (req, res) => {
     return response.error(res, 'Error revocando sesiones', 500)
   }
 }
+
+/**
+ * GET /api/auth/mi-licencia
+ * El chofer consulta el estado de su propia licencia
+ */
+export const getMiLicencia = async (req, res) => {
+  try {
+    const { id: usuarioId } = req.usuario
+
+    // Obtener el chofer_id
+    const { rows: choferRows } = await query(
+      'SELECT id FROM choferes WHERE usuario_id = $1',
+      [usuarioId]
+    )
+
+    if (choferRows.length === 0) {
+      return response.forbidden(res, 'Solo los choferes pueden consultar su licencia')
+    }
+
+    const choferId = choferRows[0].id
+
+    const { rows } = await query(`
+      SELECT
+        l.estado,
+        l.trial_inicio,
+        l.trial_fin,
+        l.suscripcion_inicio,
+        l.suscripcion_fin,
+        l.ultimo_pago,
+        l.monto_mensual,
+        CASE
+          WHEN l.estado = 'TRIAL_ACTIVO'
+            THEN GREATEST(0, EXTRACT(DAY FROM l.trial_fin - NOW())::int)
+          WHEN l.estado = 'ACTIVO'
+            THEN GREATEST(0, EXTRACT(DAY FROM l.suscripcion_fin - NOW())::int)
+          ELSE 0
+        END AS dias_restantes
+      FROM licencias_chofer l
+      WHERE l.chofer_id = $1
+    `, [choferId])
+
+    if (rows.length === 0) {
+      // El chofer existe pero aún no tiene licencia (caso legacy)
+      return response.success(res, {
+        estado: 'SIN_LICENCIA',
+        dias_restantes: 0
+      })
+    }
+
+    return response.success(res, rows[0])
+  } catch (err) {
+    console.error('❌ Error en /mi-licencia:', err.message)
+    throw err
+  }
+}

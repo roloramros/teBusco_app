@@ -12,8 +12,9 @@ import com.codram.terecojo.data.model.RegisterRequest;
 import com.codram.terecojo.data.model.RevocarTodasResponse;
 import com.codram.terecojo.data.model.RideRequest;
 import com.codram.terecojo.data.model.SesionActiva;
-import com.codram.terecojo.data.model.Offer;
-import com.codram.terecojo.data.model.OfferRequest;
+import com.codram.terecojo.data.model.Chofer;
+import com.codram.terecojo.data.model.Licencia;
+import com.codram.terecojo.data.model.LoginRequest;
 import com.codram.terecojo.data.model.StatsResponse;
 import com.codram.terecojo.data.model.Vehicle;
 import com.codram.terecojo.data.model.VehicleRequest;
@@ -48,7 +49,10 @@ public interface ApiService {
     Call<ApiResponse<AuthResponse>> registro(@Body RegisterRequest request);
 
     @POST("api/auth/login")
-    Call<ApiResponse<AuthResponse>> login(@Body LoginRequest request);
+    Call<ApiResponse<AuthResponse>> login(@Body LoginRequest loginRequest);
+
+    @GET("api/auth/mi-licencia")
+    Call<ApiResponse<Licencia>> getMiLicencia();
 
     @POST("api/auth/logout")
     Call<ApiResponse<Void>> logout();
