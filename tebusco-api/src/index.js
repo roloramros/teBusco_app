@@ -12,6 +12,7 @@ import vehicleRoutes from './routes/vehicle.js'
 import solicitudRoutes from './routes/solicitud.js'
 import notificationRoutes from './routes/notification.js'
 import adminRoutes from './routes/admin.js'
+import choferRoutes from './routes/chofer.js'
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
 // NUEVO
 import { startExpireSolicitudesJob } from './jobs/expireSolicitudes.js'
@@ -103,6 +104,9 @@ app.use('/api/notificaciones', notificationRoutes)
 
 // Rutas de administración
 app.use('/api/admin', adminRoutes)
+
+// Rutas de choferes — visibilidad y ubicación
+app.use('/api/choferes', choferRoutes)
 
 // ══════════════════════════════════════════════════════════
 // MANEJO DE ERRORES (siempre al final)
