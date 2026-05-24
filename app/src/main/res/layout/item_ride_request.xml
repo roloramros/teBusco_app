@@ -144,5 +144,22 @@
 
         </LinearLayout>
 
+        <!-- Botón secundario: No me interesa -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnDiscard"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="4dp"
+            android:text="No me interesa"
+            android:textColor="@color/gray_dark"
+            android:textSize="12sp"
+            app:cornerRadius="8dp"
+            app:icon="@android:drawable/ic_menu_close_clear_cancel"
+            app:iconSize="14dp"
+            app:iconTint="@color/gray_dark"
+            app:iconGravity="textStart" />
+
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

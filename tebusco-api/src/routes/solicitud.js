@@ -18,6 +18,7 @@ router.post('/', solicitudController.createSolicitud)
 
 // El chofer responde a una solicitud
 router.post('/:solicitud_id/responder', requireVerificado, solicitudController.responderSolicitud)
+router.post('/:solicitud_id/descartar', requireVerificado, solicitudController.descartarSolicitud)
 
 // El pasajero ve las ofertas de su solicitud
 router.get('/:solicitud_id/ofertas', solicitudController.getOfertasBySolicitud)

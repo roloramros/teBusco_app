@@ -139,6 +139,31 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
                 Toast.makeText(this, "¡Oferta enviada con éxito!", Toast.LENGTH_LONG).show();
             }
         });
+
+        viewModel.getDescartarSuccess().observe(this, solicitudId -> {
+            if (solicitudId != null) {
+                Toast.makeText(this, "Solicitud descartada", Toast.LENGTH_SHORT).show();
+                // 1. Eliminar el marcador del mapa
+                com.google.android.gms.maps.model.Marker toRemove = null;
+                for (com.google.android.gms.maps.model.Marker m : radarMarkers) {
+                    RideRequest tag = (RideRequest) m.getTag();
+                    if (tag != null && tag.getId().equals(solicitudId)) {
+                        toRemove = m;
+                        break;
+                    }
+                }
+                if (toRemove != null) {
+                    toRemove.remove();
+                    radarMarkers.remove(toRemove);
+                }
+                // 2. Eliminar de la lista del adapter
+                radarRequests.removeIf(r -> r.getId().equals(solicitudId));
+                if (adapter != null) adapter.notifyDataSetChanged();
+                // 3. Limpiar la ruta si se estaba viendo la ruta de esta solicitud
+                clearRouteMarkersAndPolylines();
+                binding.fabClearRoute.setVisibility(View.GONE);
+            }
+        });
     }
     private void setupRefreshRadarButton() {
         binding.fabRefreshRadar.setOnClickListener(v -> {
@@ -281,37 +306,68 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
         }
     }
 
+    // Nuevo método — implementa la acción de descartar desde la lista
+    public void onDiscard(RideRequest request) {
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Descartar solicitud")
+            .setMessage("No volverás a ver esta solicitud en el radar. ¿Confirmas?")
+            .setPositiveButton("DESCARTAR", (dialog, which) -> {
+                viewModel.descartarSolicitud(request.getId());
+            })
+            .setNegativeButton("CANCELAR", null)
+            .show();
+    }
+
     private void showRequestDetailsDialog(RideRequest req) {
-        com.google.android.material.dialog.MaterialAlertDialogBuilder builder = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this);
+        com.google.android.material.dialog.MaterialAlertDialogBuilder builder =
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this);
         builder.setTitle("Detalles de la Solicitud");
-        
+
         StringBuilder msg = new StringBuilder();
         msg.append("👤 Pasajero: ").append(req.getPasajeroNombre()).append("\n");
         msg.append("📏 Distancia: ").append(String.format("%.1f km", req.getDistancia())).append("\n");
         msg.append("👥 Pasajeros: ").append(req.getNumPasajeros()).append("\n");
-        
+
         int stops = (req.getParadas() != null) ? req.getParadas().size() : 0;
         msg.append("📍 Paradas: ").append(stops).append("\n");
-        
+
         if (req.getDescripcion() != null && !req.getDescripcion().isEmpty()) {
             msg.append("\n📝 Notas: ").append(req.getDescripcion()).append("\n");
         }
-        
+
         msg.append("\n💰 Oferta Pasajero: $").append(req.getPrecioOferta());
-        
+
         if (req.isHaRespondido()) {
             msg.append("\n\n✅ Ya has enviado una oferta para este viaje.");
         }
 
         builder.setMessage(msg.toString());
+
+        // Botón principal: Ofertar
         builder.setPositiveButton("OFERTAR", (dialog, which) -> onAccept(req));
+
+        // Botón neutral: No me interesa (solo si no ha ofertado ya)
+        if (!req.isHaRespondido()) {
+            builder.setNeutralButton("NO ME INTERESA", (dialog, which) -> onDiscard(req));
+        }
+
+        // Botón negativo: Cerrar
         builder.setNegativeButton("CERRAR", null);
-        
+
         androidx.appcompat.app.AlertDialog dialog = builder.create();
         dialog.show();
-        
+
+        // Deshabilitar Ofertar si ya respondió
         if (req.isHaRespondido()) {
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+        }
+
+        // Colorear el botón "No me interesa" en gris para diferenciarlo visualmente
+        android.widget.Button btnNeutral = dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEUTRAL);
+        if (btnNeutral != null) {
+            btnNeutral.setTextColor(
+                androidx.core.content.ContextCompat.getColor(this, R.color.gray_dark)
+            );
         }
     }
 

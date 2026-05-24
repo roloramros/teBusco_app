@@ -184,14 +184,23 @@ export const getTodasSolicitudesActivas = async (req, res, next) => {
     const { id: choferId, provincia_base_id } = choferRows[0];
 
     let sql = `
-      SELECT v.*, 
+      SELECT v.*,
         CASE WHEN r.id IS NOT NULL THEN TRUE ELSE FALSE END as ha_respondido
       FROM v_solicitudes v
       JOIN solicitudes s ON s.id = v.id
-      LEFT JOIN respuestas_solicitud r ON r.solicitud_id = v.id AND r.chofer_id = $1 AND r.estado != 'rechazado'
-      WHERE v.estado = 'activa' AND v.origen_provincia_id = $2
-    `;
-    let params = [choferId, provincia_base_id];
+      LEFT JOIN respuestas_solicitud r 
+        ON r.solicitud_id = v.id 
+        AND r.chofer_id = $1 
+        AND r.estado NOT IN ('rechazado', 'descartado')
+      WHERE v.estado = 'activa' 
+        AND v.origen_provincia_id = $2
+        AND NOT EXISTS (
+          SELECT 1 FROM respuestas_solicitud rd 
+          WHERE rd.solicitud_id = v.id 
+            AND rd.chofer_id = $1 
+            AND rd.estado = 'descartado'
+        )
+    `;    let params = [choferId, provincia_base_id];
 
     sql += ` ORDER BY v.creada_en DESC`;
 
@@ -803,6 +812,52 @@ export const finalizarViaje = async (req, res, next) => {
     next(err)
   } finally {
     client.release()
+  }
+}
+
+/**
+ * El chofer descarta una solicitud (no le interesa, no vuelve a verla)
+ */
+export const descartarSolicitud = async (req, res, next) => {
+  try {
+    const { id: usuarioId } = req.usuario
+    const { solicitud_id } = req.params
+
+    // 1. Obtener el ID de chofer
+    const { rows: choferRows } = await query(
+      'SELECT id FROM choferes WHERE usuario_id = $1',
+      [usuarioId]
+    )
+
+    if (choferRows.length === 0) {
+      return badRequest(res, 'Solo los choferes pueden descartar solicitudes')
+    }
+    const choferId = choferRows[0].id
+
+    // 2. Verificar que la solicitud existe y está activa
+    const { rows: solRows } = await query(
+      'SELECT id FROM solicitudes WHERE id = $1 AND estado = $2',
+      [solicitud_id, 'activa']
+    )
+
+    if (solRows.length === 0) {
+      return notFound(res, 'La solicitud no existe o ya no está activa')
+    }
+
+    // 3. Insertar o actualizar el registro de descarte
+    //    ON CONFLICT maneja el caso en que el chofer ya tenía una fila previa
+    //    (por ejemplo, si había ofertado y fue rechazado — ahora descarta)
+    await query(
+      `INSERT INTO respuestas_solicitud (solicitud_id, chofer_id, estado)
+       VALUES ($1, $2, 'descartado')
+       ON CONFLICT (solicitud_id, chofer_id) 
+       DO UPDATE SET estado = 'descartado', respondido_en = NOW()`,
+      [solicitud_id, choferId]
+    )
+
+    return success(res, null, 'Solicitud descartada correctamente')
+  } catch (err) {
+    next(err)
   }
 }
 

@@ -71,6 +71,15 @@ public class DriverProfileActivity extends BaseActivity implements RideRequestAd
                 loadRequests(); // Recargar para ver si hay cambios
             }
         });
+
+        viewModel.getDescartarSuccess().observe(this, solicitudId -> {
+            if (solicitudId != null) {
+                Toast.makeText(this, "Solicitud descartada", Toast.LENGTH_SHORT).show();
+                requests.removeIf(r -> r.getId().equals(solicitudId));
+                if (adapter != null) adapter.notifyDataSetChanged();
+                updateEmptyState(requests.isEmpty());
+            }
+        });
     }
 
     private void setupRequestsList() {
@@ -89,6 +98,19 @@ public class DriverProfileActivity extends BaseActivity implements RideRequestAd
             return;
         }
         showMakeOfferDialog(request);
+    }
+
+    @Override
+    public void onDiscard(RideRequest request) {
+        // Confirmar y llamar a la API
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Descartar solicitud")
+            .setMessage("No volverás a ver esta solicitud en el radar. ¿Confirmas?")
+            .setPositiveButton("DESCARTAR", (dialog, which) -> {
+                viewModel.descartarSolicitud(request.getId());
+            })
+            .setNegativeButton("CANCELAR", null)
+            .show();
     }
 
     private void showMakeOfferDialog(RideRequest rideRequest) {

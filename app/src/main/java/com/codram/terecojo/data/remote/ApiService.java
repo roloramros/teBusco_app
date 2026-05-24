@@ -121,6 +121,9 @@ public interface ApiService {
     @POST("api/solicitudes/{id}/responder")
     Call<ApiResponse<Offer>> responderSolicitud(@Path("id") String solicitudId, @Body OfferRequest request);
 
+    @POST("api/solicitudes/{id}/descartar")
+    Call<ApiResponse<Void>> descartarSolicitud(@Path("id") String solicitudId);
+
     @GET("api/solicitudes/{id}/ofertas")
     Call<ApiResponse<List<Offer>>> getOfertas(@Path("id") String solicitudId);
 

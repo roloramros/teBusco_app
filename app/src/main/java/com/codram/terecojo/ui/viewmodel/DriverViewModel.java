@@ -25,6 +25,7 @@ public class DriverViewModel extends AndroidViewModel {
     
     private final MutableLiveData<List<Vehicle>> vehicles = new MutableLiveData<>();
     private final MutableLiveData<Boolean> offerSuccess = new MutableLiveData<>();
+    private final MutableLiveData<String> descartarSuccess = new MutableLiveData<>();
 
     public DriverViewModel(@NonNull Application application) {
         super(application);
@@ -34,6 +35,7 @@ public class DriverViewModel extends AndroidViewModel {
     public LiveData<String> getErrorMessage() { return errorMessage; }
     public LiveData<List<Vehicle>> getVehicles() { return vehicles; }
     public LiveData<Boolean> getOfferSuccess() { return offerSuccess; }
+    public LiveData<String> getDescartarSuccess() { return descartarSuccess; }
 
     public void fetchMyVehicles() {
         RetrofitClient.getService().getVehicles().enqueue(new Callback<ApiResponse<List<Vehicle>>>() { // MODIFICADO
@@ -79,6 +81,24 @@ public class DriverViewModel extends AndroidViewModel {
             @Override
             public void onError(String error) {
                 errorMessage.postValue(error);
+            }
+        });
+    }
+
+    public void descartarSolicitud(String solicitudId) {
+        RetrofitClient.getService().descartarSolicitud(solicitudId).enqueue(new Callback<ApiResponse<Void>>() {
+            @Override
+            public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                if (response.isSuccessful()) {
+                    descartarSuccess.postValue(solicitudId);
+                } else {
+                    errorMessage.postValue("Error al descartar la solicitud");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                errorMessage.postValue("Error de red: " + t.getMessage());
             }
         });
     }

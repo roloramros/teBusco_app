@@ -18,6 +18,7 @@ public class RideRequestAdapter extends RecyclerView.Adapter<RideRequestAdapter.
     public interface OnRideActionListener {
         void onAccept(RideRequest request);
         void onViewMap(RideRequest request);
+        void onDiscard(RideRequest request);
     }
 
     public RideRequestAdapter(List<RideRequest> requests, boolean isUserVerified, OnRideActionListener listener) {   
@@ -135,6 +136,17 @@ public class RideRequestAdapter extends RecyclerView.Adapter<RideRequestAdapter.
         holder.btnAccept.setOnClickListener(v -> {
             if (listener != null) listener.onAccept(request);
         });
+
+        if (holder.btnDiscard != null) {
+            if (request.isHaRespondido()) {
+                holder.btnDiscard.setVisibility(View.GONE);
+            } else {
+                holder.btnDiscard.setVisibility(View.VISIBLE);
+                holder.btnDiscard.setOnClickListener(v -> {
+                    if (listener != null) listener.onDiscard(request);
+                });
+            }
+        }
     }
 
     @Override
@@ -143,7 +155,7 @@ public class RideRequestAdapter extends RecyclerView.Adapter<RideRequestAdapter.
     public static class ViewHolder extends RecyclerView.ViewHolder {
         TextView tvPassengerName, tvPrice, tvDateTime;
         TextView tvDistanceApprox, tvStopsDetail, tvPassengersDetail, tvCreatedDate, tvDescription, tvOfferPrice;
-        View btnAccept, btnViewMap;
+        View btnAccept, btnViewMap, btnDiscard;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -160,6 +172,7 @@ public class RideRequestAdapter extends RecyclerView.Adapter<RideRequestAdapter.
             
             btnAccept = itemView.findViewById(R.id.btnAccept);
             btnViewMap = itemView.findViewById(R.id.btnViewMap);
+            btnDiscard = itemView.findViewById(R.id.btnDiscard);
         }
     }
 }
