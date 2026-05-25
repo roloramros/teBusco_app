@@ -161,53 +161,7 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
         // Configurar clics del menú
         if (navigationView != null) {
             navigationView.setNavigationItemSelectedListener(item -> {
-                int id = item.getItemId();
-                Intent intent = null;
-
-                if (id == R.id.nav_request_service) {
-                    if (!(this instanceof MainActivity)) {
-                        intent = new Intent(this, MainActivity.class);
-                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                    }
-                } else if (id == R.id.nav_trips) {
-                    if (!(this instanceof MyRequestsActivity)) {
-                        intent = new Intent(this, MyRequestsActivity.class);
-                    }
-                } else if (id == R.id.nav_frequent_sites) {
-                    if (!(this instanceof FrequentSitesActivity)) {
-                        intent = new Intent(this, FrequentSitesActivity.class);
-                    }
-                } else if (id == R.id.nav_driver_radar) {
-                    intent = new Intent(this, DriverActivity.class);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                } else if (id == R.id.nav_driver_trips) {
-                    if (!(this instanceof DriverTripsActivity)) {
-                        intent = new Intent(this, DriverTripsActivity.class);
-                    }
-                } else if (id == R.id.nav_driver_verification) {
-                    if (!(this instanceof VerificationActivity)) {
-                        intent = new Intent(this, VerificationActivity.class);
-                    }
-                } else if (id == R.id.nav_driver_oferts) {
-                    if (!(this instanceof DriverOffersActivity)) {
-                        intent = new Intent(this, DriverOffersActivity.class);
-                    }
-                } else if (id == R.id.nav_my_vehicles) {
-                    if (!(this instanceof MyVehiclesActivity)) {
-                        intent = new Intent(this, MyVehiclesActivity.class);
-                    }
-                } else if (id == R.id.nav_profile) {
-                    if (!(this instanceof DriverProfileActivity)) {
-                        intent = new Intent(this, DriverProfileActivity.class);
-                    }
-                }
-
-                if (intent != null) {
-                    startActivity(intent);
-                }
-                
-                if (drawerLayout != null) drawerLayout.closeDrawers();
-                return true;
+                return onNavigationItemSelected(item);
             });
 
             // Configurar visibilidad según el tipo de usuario
@@ -423,5 +377,63 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
                 // Silencioso en caso de error
             }
         });
+    }
+
+    public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+        int id = item.getItemId();
+        handleCommonNavigation(id);
+        return true;
+    }
+
+    protected void handleCommonNavigation(int id) {
+        Intent intent = null;
+
+        if (id == R.id.nav_request_service) {
+            if (!(this instanceof MainActivity)) {
+                intent = new Intent(this, MainActivity.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            }
+        } else if (id == R.id.nav_trips) {
+            if (!(this instanceof MyRequestsActivity)) {
+                intent = new Intent(this, MyRequestsActivity.class);
+            }
+        } else if (id == R.id.nav_frequent_sites) {
+            if (!(this instanceof FrequentSitesActivity)) {
+                intent = new Intent(this, FrequentSitesActivity.class);
+            }
+        } else if (id == R.id.nav_driver_radar) {
+            intent = new Intent(this, DriverActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        } else if (id == R.id.nav_driver_trips) {
+            if (!(this instanceof DriverTripsActivity)) {
+                intent = new Intent(this, DriverTripsActivity.class);
+            }
+        } else if (id == R.id.nav_driver_verification) {
+            if (!(this instanceof VerificationActivity)) {
+                intent = new Intent(this, VerificationActivity.class);
+            }
+        } else if (id == R.id.nav_driver_oferts) {
+            if (!(this instanceof DriverOffersActivity)) {
+                intent = new Intent(this, DriverOffersActivity.class);
+            }
+        } else if (id == R.id.nav_my_vehicles) {
+            if (!(this instanceof MyVehiclesActivity)) {
+                intent = new Intent(this, MyVehiclesActivity.class);
+            }
+        } else if (id == R.id.nav_profile) {
+            if (!(this instanceof DriverProfileActivity)) {
+                intent = new Intent(this, DriverProfileActivity.class);
+            }
+        } else if (id == R.id.nav_mi_licencia) {
+            if (!(this instanceof MiLicenciaActivity)) {
+                intent = new Intent(this, MiLicenciaActivity.class);
+            }
+        }
+
+        if (intent != null) {
+            startActivity(intent);
+        }
+
+        if (drawerLayout != null) drawerLayout.closeDrawers();
     }
 }
