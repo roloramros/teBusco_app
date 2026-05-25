@@ -25,6 +25,9 @@ public class Licencia {
     @SerializedName("monto_mensual")
     private double montoMensual;
 
+    @SerializedName("saldo_fondo")
+    private double saldoFondo;
+
     public String getEstado() { return estado; }
     public int getDiasRestantes() { return diasRestantes; }
     public String getTrialInicio() { return trialInicio; }
@@ -32,6 +35,7 @@ public class Licencia {
     public String getSuscripcionFin() { return suscripcionFin; }
     public String getUltimoPago() { return ultimoPago; }
     public double getMontoMensual() { return montoMensual; }
+    public double getSaldoFondo() { return saldoFondo; }
 
     // Helpers de lógica
     public boolean puedeOperar() {
@@ -39,11 +43,11 @@ public class Licencia {
     }
 
     public boolean esTrial() {
-        return "TRIAL_ACTIVO".equals(estado) || "TRIAL_EXPIRADO".equals(estado);
+        return "TRIAL_ACTIVO".equals(estado);
     }
 
     public boolean necesitaPago() {
-        return "TRIAL_EXPIRADO".equals(estado) || "SUSPENDIDO".equals(estado);
+        return "SUSPENDIDO".equals(estado);
     }
 
     public boolean estaBloqueado() {
