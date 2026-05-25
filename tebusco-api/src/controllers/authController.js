@@ -123,11 +123,17 @@ export const registro = async (req, res) => {
         [usuario.id, provincia_id || null, municipio_id || null]
       )
 
-      // ← NUEVO: Crear licencia en trial de 45 días automáticamente
+      // ← NUEVO: Obtener la cuota actual del sistema (la más común)
+      const { rows: quotaRows } = await client.query(
+        'SELECT monto_mensual FROM licencias_chofer GROUP BY monto_mensual ORDER BY COUNT(*) DESC LIMIT 1'
+      )
+      const cuotaActual = quotaRows.length > 0 ? quotaRows[0].monto_mensual : 0
+
+      // ← NUEVO: Crear licencia en trial de 45 días automáticamente con la cuota actual
       await client.query(
-        `INSERT INTO licencias_chofer (chofer_id)
-         VALUES ($1)`,
-        [choferInserted[0].id]
+        `INSERT INTO licencias_chofer (chofer_id, monto_mensual)
+         VALUES ($1, $2)`,
+        [choferInserted[0].id, cuotaActual]
       )
     }
 

@@ -92,19 +92,34 @@ export const getChoferes = async (req, res, next) => {
       whereClauses.push(`p.id = $${params.length + 1}`)
       params.push(provincia_id)
     }
+    if (req.query.search) {
+      const search = `%${req.query.search}%`
+      whereClauses.push(`(u.nombre ILIKE $${params.length + 1} OR u.username ILIKE $${params.length + 1} OR u.email ILIKE $${params.length + 1} OR u.telefono ILIKE $${params.length + 1})`)
+      params.push(search)
+    }
 
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
 
     const sql = `
-      SELECT c.id, c.estado, c.calificacion_promedio, c.total_viajes,
+      SELECT c.id, c.estado as chofer_estado, c.calificacion_promedio, c.total_viajes,
              c.opera_interprovincial, c.licencia_numero, c.aprobado_en,
              u.id as usuario_id, u.nombre, u.username, u.telefono, u.email,
              u.foto_url, u.activo, u.verificado, u.fecha_registro, u.fcm_token,
-             p.nombre as provincia, m.nombre as municipio
+             p.nombre as provincia, m.nombre as municipio,
+             l.estado, l.saldo_fondo, l.monto_mensual, l.trial_inicio, l.trial_fin,
+             l.suscripcion_inicio, l.suscripcion_fin, l.ultimo_pago,
+             CASE
+               WHEN l.estado = 'TRIAL_ACTIVO'
+                 THEN GREATEST(0, EXTRACT(DAY FROM l.trial_fin - NOW())::int)
+               WHEN l.estado = 'ACTIVO'
+                 THEN GREATEST(0, EXTRACT(DAY FROM l.suscripcion_fin - NOW())::int)
+               ELSE 0
+             END AS dias_restantes
       FROM choferes c
       JOIN usuarios u ON u.id = c.usuario_id
       LEFT JOIN municipios m ON m.id = c.municipio_base_id
       LEFT JOIN provincias p ON p.id = m.provincia_id
+      LEFT JOIN licencias_chofer l ON l.chofer_id = c.id
       ${whereSql}
       ORDER BY u.fecha_registro DESC
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -200,13 +215,17 @@ export const aprobarChofer = async (req, res, next) => {
     await client.query('UPDATE usuarios SET verificado = true WHERE id = $1', [chofer.user_id])
 
     // ← NUEVO: Crear licencia si no existe (para choferes legacy)
-    await client.query(
-      `INSERT INTO licencias_chofer (chofer_id)
-       VALUES ($1)
-       ON CONFLICT (chofer_id) DO NOTHING`,
-      [id]  // id aquí es el chofer.id, no el usuario.id
+    const { rows: quotaRows } = await client.query(
+      'SELECT monto_mensual FROM licencias_chofer GROUP BY monto_mensual ORDER BY COUNT(*) DESC LIMIT 1'
     )
+    const cuotaActual = quotaRows.length > 0 ? quotaRows[0].monto_mensual : 0
 
+    await client.query(
+      `INSERT INTO licencias_chofer (chofer_id, monto_mensual)
+       VALUES ($1, $2)
+       ON CONFLICT (chofer_id) DO NOTHING`,
+      [id, cuotaActual]  // id aquí es el chofer.id, no el usuario.id
+    )
     await client.query('COMMIT')
 
     // Notificación fuera de transacción

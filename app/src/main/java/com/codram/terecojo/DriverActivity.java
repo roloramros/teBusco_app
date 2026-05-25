@@ -259,7 +259,7 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
     private void mostrarDialogSeleccionVehiculo(double lat, double lng) {
         String[] nombres = myVehicles.stream()
             .map(v -> v.getMarca() + " · " + v.getPlaca()
-                + (v.getCapacidadPasajeros() != null ? " · " + v.getCapacidadPasajeros() + " pax" : ""))
+                + (v.getCapacidadPasajeros() != null ? " · " + v.getCapacidadPasajeros() + " pasajeros" : ""))
             .toArray(String[]::new);
 
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)

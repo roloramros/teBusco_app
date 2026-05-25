@@ -13,17 +13,14 @@ export const getSolicitudes = (params) => api.get('/api/admin/solicitudes', { pa
 export const broadcastNotification = (body) => api.post('/api/admin/notificaciones/broadcast', body).then(res => res.data.data);
 
 // Licencias
-export const getLicencias = (params) =>
-  api.get('/api/admin/licencias', { params }).then(res => res.data.data.data);
-
 export const getLicenciasStats = () =>
   api.get('/api/admin/licencias/stats').then(res => res.data.data);
 
-export const getLicenciaByChofer = (choferId) =>
-  api.get(`/api/admin/licencias/${choferId}`).then(res => res.data.data);
-
 export const registrarPago = (choferId, body) =>
   api.post(`/api/admin/licencias/${choferId}/registrar-pago`, body).then(res => res.data);
+
+export const actualizarCuotaMasiva = (monto) =>
+  api.post('/api/admin/licencias/actualizar-cuota-masiva', { monto }).then(res => res.data);
 
 export const cambiarEstadoLicencia = (choferId, body) =>
   api.post(`/api/admin/licencias/${choferId}/cambiar-estado`, body).then(res => res.data);

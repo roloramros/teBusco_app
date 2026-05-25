@@ -39,7 +39,7 @@ export const getLicencias = async (req, res, next) => {
       SELECT
         l.chofer_id AS id, l.estado, l.trial_inicio, l.trial_fin,
         l.suscripcion_inicio, l.suscripcion_fin,
-        l.ultimo_pago, l.monto_mensual, l.notas,
+        l.ultimo_pago, l.monto_mensual, l.saldo_fondo, l.notas,
         l.creada_en, l.actualizada_en,
         c.id AS chofer_id,
         u.id AS usuario_id, u.nombre, u.username, u.telefono,
@@ -126,33 +126,32 @@ export const getLicenciaByChofer = async (req, res, next) => {
 
 /**
  * POST /api/admin/licencias/:chofer_id/registrar-pago
- * El admin registra un pago mensual manualmente.
- * Body: { monto, meses = 1, notas }
+ * El admin registra un depósito en el monedero del chofer.
+ * Body: { monto, notas, monto_mensual }
  *
  * Lógica:
- *   - Si el chofer estaba SUSPENDIDO o TRIAL_EXPIRADO → pasa a ACTIVO
- *   - Si ya está ACTIVO → extiende suscripcion_fin N meses más
- *   - Actualiza verificado = true en usuarios
+ *   - Suma el 'monto' al saldo_fondo.
+ *   - Si el chofer estaba SUSPENDIDO o TRIAL_EXPIRADO y el nuevo saldo alcanza para un mes, descuenta el mes, activa y extiende.
  */
 export const registrarPago = async (req, res, next) => {
   const client = await getClient()
   try {
     const { chofer_id } = req.params
-    const { monto = 0, meses = 1, notas } = req.body
+    const { monto = 0, monto_mensual, notas } = req.body
 
-    if (parseInt(meses) < 1 || parseInt(meses) > 12) {
-      return badRequest(res, 'El número de meses debe estar entre 1 y 12')
+    const deposito = parseFloat(monto)
+    if (isNaN(deposito) || deposito < 0) {
+      return badRequest(res, 'El monto a depositar debe ser un número válido mayor o igual a 0')
     }
 
     await client.query('BEGIN')
 
-    // Obtener licencia actual
     const { rows: licRows } = await client.query(
       `SELECT l.*, c.usuario_id, u.fcm_token, u.nombre
        FROM licencias_chofer l
        JOIN choferes c ON c.id = l.chofer_id
        JOIN usuarios u ON u.id = c.usuario_id
-       WHERE l.chofer_id = $1`,
+       WHERE l.chofer_id = $1 FOR UPDATE`,
       [chofer_id]
     )
 
@@ -162,66 +161,68 @@ export const registrarPago = async (req, res, next) => {
     }
 
     const licencia = licRows[0]
+    let nuevoSaldo = parseFloat(licencia.saldo_fondo || 0) + deposito
+    const cuotaMensual = parseFloat(monto_mensual !== undefined ? monto_mensual : (licencia.monto_mensual || 0))
 
-    // Calcular nueva fecha de fin de suscripción
-    // Si ya tiene suscripción activa y no expiró, extender desde ese fin
-    // Si no, comenzar desde ahora
-    const baseDate =
-      licencia.estado === 'ACTIVO' && licencia.suscripcion_fin && new Date(licencia.suscripcion_fin) > new Date()
-        ? licencia.suscripcion_fin
-        : 'NOW()'
+    let estado = licencia.estado
+    let suscripcionInicio = licencia.suscripcion_inicio
+    let suscripcionFin = licencia.suscripcion_fin
+    let activadoAhora = false
 
-    const suscripcionFinSQL =
-      baseDate === 'NOW()'
-        ? `NOW() + INTERVAL '${parseInt(meses)} months'`
-        : `$1::timestamptz + INTERVAL '${parseInt(meses)} months'`
-
-    const updateParams =
-      baseDate === 'NOW()'
-        ? [monto, notas || null, chofer_id]
-        : [licencia.suscripcion_fin, monto, notas || null, chofer_id]
-
-    const suscripcionInicioSQL =
-      licencia.estado === 'ACTIVO' ? 'l.suscripcion_inicio' : 'NOW()'
+    // Si no está activo (o trial), intentamos cobrar y activar
+    const inactivo = ['SUSPENDIDO'].includes(estado)
+    if (inactivo && nuevoSaldo >= cuotaMensual && cuotaMensual > 0) {
+      nuevoSaldo -= cuotaMensual
+      estado = 'ACTIVO'
+      suscripcionInicio = new Date()
+      
+      // Extender 1 mes desde hoy
+      const hoy = new Date()
+      suscripcionFin = new Date(hoy.setMonth(hoy.getMonth() + 1))
+      activadoAhora = true
+    }
 
     await client.query(
-      `UPDATE licencias_chofer l SET
-        estado             = 'ACTIVO',
-        suscripcion_inicio = ${suscripcionInicioSQL},
-        suscripcion_fin    = ${suscripcionFinSQL},
+      `UPDATE licencias_chofer SET
+        estado             = $1,
+        suscripcion_inicio = $2,
+        suscripcion_fin    = $3,
+        saldo_fondo        = $4,
+        monto_mensual      = $5,
         ultimo_pago        = NOW(),
-        monto_mensual      = $${baseDate === 'NOW()' ? 1 : 2},
-        notas              = $${baseDate === 'NOW()' ? 2 : 3},
+        notas              = COALESCE($6, notas),
         actualizada_en     = NOW()
-       WHERE l.chofer_id   = $${baseDate === 'NOW()' ? 3 : 4}`,
-      updateParams
+       WHERE chofer_id     = $7`,
+      [estado, suscripcionInicio, suscripcionFin, nuevoSaldo, cuotaMensual, notas || null, chofer_id]
     )
 
-    // Activar verificado si estaba en false
-    await client.query(
-      'UPDATE usuarios SET verificado = true WHERE id = $1',
-      [licencia.usuario_id]
-    )
-
-    // Actualizar estado del chofer a disponible si estaba inactivo
-    await client.query(
-      `UPDATE choferes SET estado = 'disponible'
-       WHERE id = $1 AND estado = 'inactivo'`,
-      [chofer_id]
-    )
+    if (activadoAhora) {
+      await client.query('UPDATE usuarios SET verificado = true WHERE id = $1', [licencia.usuario_id])
+      await client.query(`UPDATE choferes SET estado = 'disponible' WHERE id = $1 AND estado = 'inactivo'`, [chofer_id])
+    }
 
     await client.query('COMMIT')
 
-    // Notificar al chofer
-    sendNotification({
-      usuario_id: licencia.usuario_id,
-      tipo: 'sistema_alerta',
-      titulo: '✅ Licencia activada',
-      cuerpo: `Tu licencia de uso de Te Busco ha sido activada por ${meses} ${parseInt(meses) === 1 ? 'mes' : 'meses'}. ¡Ya puedes continuar operando!`,
-      fcm_token: licencia.fcm_token
-    }).catch(console.error)
+    // Notificar
+    if (activadoAhora) {
+      sendNotification({
+        usuario_id: licencia.usuario_id,
+        tipo: 'sistema_alerta',
+        titulo: '✅ Licencia activada',
+        cuerpo: `Tu licencia de Te Busco ha sido activada por 1 mes. Saldo restante: $${nuevoSaldo.toFixed(2)}.`,
+        fcm_token: licencia.fcm_token
+      }).catch(console.error)
+    } else if (deposito > 0) {
+      sendNotification({
+        usuario_id: licencia.usuario_id,
+        tipo: 'sistema_alerta',
+        titulo: '💰 Depósito recibido',
+        cuerpo: `Se han depositado $${deposito.toFixed(2)} en tu fondo. Saldo actual: $${nuevoSaldo.toFixed(2)}.`,
+        fcm_token: licencia.fcm_token
+      }).catch(console.error)
+    }
 
-    return success(res, null, `Pago registrado. Suscripción extendida por ${meses} ${parseInt(meses) === 1 ? 'mes' : 'meses'}`)
+    return success(res, null, activadoAhora ? 'Licencia reactivada y fondo actualizado.' : 'Fondo actualizado correctamente.')
   } catch (err) {
     await client.query('ROLLBACK')
     next(err)
@@ -242,7 +243,7 @@ export const cambiarEstado = async (req, res, next) => {
     const { chofer_id } = req.params
     const { estado, notas } = req.body
 
-    const estadosValidos = ['TRIAL_ACTIVO', 'TRIAL_EXPIRADO', 'ACTIVO', 'SUSPENDIDO', 'BLOQUEADO']
+    const estadosValidos = ['TRIAL_ACTIVO', 'ACTIVO', 'SUSPENDIDO', 'BLOQUEADO']
     if (!estadosValidos.includes(estado)) {
       return badRequest(res, `Estado inválido. Válidos: ${estadosValidos.join(', ')}`)
     }
@@ -344,7 +345,6 @@ export const getLicenciasStats = async (req, res, next) => {
     const { rows } = await query(`
       SELECT
         COUNT(*) FILTER (WHERE estado = 'TRIAL_ACTIVO')   AS trial_activo,
-        COUNT(*) FILTER (WHERE estado = 'TRIAL_EXPIRADO') AS trial_expirado,
         COUNT(*) FILTER (WHERE estado = 'ACTIVO')         AS activo,
         COUNT(*) FILTER (WHERE estado = 'SUSPENDIDO')     AS suspendido,
         COUNT(*) FILTER (WHERE estado = 'BLOQUEADO')      AS bloqueado,
@@ -360,6 +360,31 @@ export const getLicenciasStats = async (req, res, next) => {
     `)
 
     return success(res, rows[0])
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * POST /api/admin/licencias/actualizar-cuota-masiva
+ * Actualiza el monto_mensual de TODOS los choferes.
+ * Body: { monto }
+ */
+export const actualizarCuotaMasiva = async (req, res, next) => {
+  try {
+    const { monto } = req.body
+    const cuota = parseFloat(monto)
+
+    if (isNaN(cuota) || cuota < 0) {
+      return badRequest(res, 'El monto debe ser un n�mero v�lido')
+    }
+
+    const { rowCount } = await query(
+      'UPDATE licencias_chofer SET monto_mensual = $1, actualizada_en = NOW()',
+      [cuota]
+    )
+
+    return success(res, null, `Se ha actualizado la cuota a $${cuota} para ${rowCount} choferes.`)
   } catch (err) {
     next(err)
   }

@@ -32,6 +32,7 @@ router.post('/notificaciones/broadcast', adminController.broadcastNotification)
 router.get('/licencias',                              licenciaController.getLicencias)
 router.get('/licencias/stats',                        licenciaController.getLicenciasStats)
 router.get('/licencias/:chofer_id',                   licenciaController.getLicenciaByChofer)
+router.post('/licencias/actualizar-cuota-masiva',    licenciaController.actualizarCuotaMasiva)
 router.post('/licencias/:chofer_id/registrar-pago',   licenciaController.registrarPago)
 router.post('/licencias/:chofer_id/cambiar-estado',   licenciaController.cambiarEstado)
 
