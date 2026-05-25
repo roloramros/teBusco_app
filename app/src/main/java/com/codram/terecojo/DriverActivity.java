@@ -835,4 +835,16 @@ public class DriverActivity extends BaseActivity implements RideRequestAdapter.O
             return true;
         });
     }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (visibilidadReceiver != null) {
+            androidx.localbroadcastmanager.content.LocalBroadcastManager
+                    .getInstance(this)
+                    .unregisterReceiver(visibilidadReceiver);
+        }
+    }
+
+
 }
