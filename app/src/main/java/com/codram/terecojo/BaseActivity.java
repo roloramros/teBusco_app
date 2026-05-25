@@ -198,6 +198,9 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
                 MenuItem navProfile = menu.findItem(R.id.nav_profile);
                 if (navProfile != null) navProfile.setVisible(isChofer);
 
+                MenuItem navMiLicencia = menu.findItem(R.id.nav_mi_licencia);
+                if (navMiLicencia != null) navMiLicencia.setVisible(isChofer);
+
                 // Items de Admin
                 MenuItem navAdmin = menu.findItem(R.id.nav_admin_panel);
                 if (navAdmin != null) navAdmin.setVisible(isAdmin);

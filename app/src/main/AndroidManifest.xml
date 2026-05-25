@@ -85,6 +85,12 @@
             android:theme="@style/Theme.TeRecojo" />
 
         <activity
+            android:name=".MiLicenciaActivity"
+            android:exported="false"
+            android:label="Mi Licencia"
+            android:theme="@style/Theme.TeRecojo" />
+
+        <activity
             android:name=".VerificationActivity"
             android:exported="false"
             android:label="Verificación"
