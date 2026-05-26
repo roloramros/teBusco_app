@@ -11,6 +11,8 @@ export const toggleUsuarioActivo = (id) => api.patch(`/api/admin/usuarios/${id}/
 export const deleteUsuario = (id) => api.delete(`/api/admin/usuarios/${id}`).then(res => res.data.data);
 export const getSolicitudes = (params) => api.get('/api/admin/solicitudes', { params }).then(res => res.data.data.data);
 export const broadcastNotification = (body) => api.post('/api/admin/notificaciones/broadcast', body).then(res => res.data.data);
+export const notificarUsuario = (usuarioId, body) =>
+  api.post(`/api/admin/notificaciones/usuario/${usuarioId}`, body).then(res => res.data);
 
 // Licencias
 export const getLicenciasStats = () =>

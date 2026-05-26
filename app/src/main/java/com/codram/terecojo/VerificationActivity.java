@@ -264,7 +264,7 @@ public class VerificationActivity extends BaseActivity {
 
     private void mostrarDialogRecarga() {
         // Número de tarjeta del administrador
-        final String NUMERO_TARJETA = "9226 3000 XXXX XXXX";
+        final String NUMERO_TARJETA = "9238 1299 7539 7342";
         final String WHATSAPP_NUMBER = "5350140609"; // Cuba +53, sin el +
 
         // Inflar el layout del dialog

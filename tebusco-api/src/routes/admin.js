@@ -27,6 +27,7 @@ router.get('/solicitudes', adminController.getSolicitudes)
 
 // Notificaciones
 router.post('/notificaciones/broadcast', adminController.broadcastNotification)
+router.post('/notificaciones/usuario/:id',      adminController.notificarUsuario)
 
 // Gestión de Licencias
 router.get('/licencias',                              licenciaController.getLicencias)

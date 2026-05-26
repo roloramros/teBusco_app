@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getUsuarios, toggleUsuarioActivo, getProvincias, deleteUsuario } from '../api/admin';
+import { getUsuarios, toggleUsuarioActivo, getProvincias, deleteUsuario, notificarUsuario } from '../api/admin';
 import { Table } from '../components/ui/Table';
 import { Badge } from '../components/ui/Badge';
 import { formatDateShort } from '../utils/formatters';
@@ -11,6 +11,10 @@ const Usuarios = () => {
  const [loading, setLoading] = useState(true);
  const [filter, setFilter] = useState({ tipo: '', activo: '', provincia_id: '' });
 
+ const [modalNotif, setModalNotif] = useState(null); // usuario seleccionado
+ const [notifForm, setNotifForm] = useState({ titulo: '', cuerpo: '' });
+ const [enviando, setEnviando] = useState(false);
+
  const handleDelete = async (user) => {
   if (!confirm(`¿Estás seguro de que deseas eliminar a ${user.nombre}? Esta acción no se puede deshacer.`)) return;
   try {
@@ -19,6 +23,27 @@ const Usuarios = () => {
    loadUsuarios();
   } catch {
    toast.error('Error al eliminar usuario');
+  }
+ };
+
+ const handleNotificar = async () => {
+  if (!notifForm.titulo.trim() || !notifForm.cuerpo.trim()) {
+    toast.error('El título y el mensaje son obligatorios');
+    return;
+  }
+  setEnviando(true);
+  try {
+    await notificarUsuario(modalNotif.id, {
+      titulo: notifForm.titulo.trim(),
+      cuerpo: notifForm.cuerpo.trim()
+    });
+    toast.success(`Notificación enviada a ${modalNotif.nombre}`);
+    setModalNotif(null);
+    setNotifForm({ titulo: '', cuerpo: '' });
+  } catch (err) {
+    toast.error(err.response?.data?.message || 'Error al enviar la notificación');
+  } finally {
+    setEnviando(false);
   }
  };
 
@@ -98,12 +123,24 @@ const Usuarios = () => {
  key: 'acciones',
  label: 'Acciones',
  render: (item) => (
-   <button
-    onClick={() => handleDelete(item)}
-    className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-   >
-    Eliminar
-   </button>
+   <div className="flex gap-2">
+     <button
+       onClick={() => {
+         setModalNotif(item);
+         setNotifForm({ titulo: '', cuerpo: '' });
+       }}
+       className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
+       title="Enviar notificación push"
+     >
+       🔔 Notificar
+     </button>
+     <button
+       onClick={() => handleDelete(item)}
+       className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-sm"
+     >
+       Eliminar
+     </button>
+   </div>
  )
 }
   ];
@@ -141,6 +178,77 @@ const Usuarios = () => {
         </select>
       </div>
       <Table columns={columns} data={data} loading={loading} />
+
+      {/* Modal: Enviar notificación push */}
+      {modalNotif && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+
+            {/* Header */}
+            <div className="p-6 border-b">
+              <h2 className="text-lg font-bold text-gray-900">Enviar Notificación</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Para: <span className="font-medium text-gray-700">{modalNotif.nombre}</span>
+                {' '}· @{modalNotif.username}
+              </p>
+            </div>
+
+            {/* Form */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Título
+                </label>
+                <input
+                  type="text"
+                  maxLength={100}
+                  placeholder="Ej: Información importante"
+                  value={notifForm.titulo}
+                  onChange={e => setNotifForm(f => ({ ...f, titulo: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Mensaje
+                </label>
+                <textarea
+                  maxLength={500}
+                  rows={4}
+                  placeholder="Escribe el mensaje que recibirá el usuario..."
+                  value={notifForm.cuerpo}
+                  onChange={e => setNotifForm(f => ({ ...f, cuerpo: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
+                />
+                <p className="text-xs text-gray-400 mt-1 text-right">
+                  {notifForm.cuerpo.length}/500
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setModalNotif(null);
+                  setNotifForm({ titulo: '', cuerpo: '' });
+                }}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleNotificar}
+                disabled={enviando || !notifForm.titulo.trim() || !notifForm.cuerpo.trim()}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {enviando ? 'Enviando...' : '🔔 Enviar notificación'}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };

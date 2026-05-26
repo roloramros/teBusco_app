@@ -554,3 +554,47 @@ export const broadcastNotification = async (req, res, next) => {
     next(err)
   }
 }
+
+/**
+ * POST /api/admin/notificaciones/usuario/:id
+ * Envía una notificación push individual a un usuario específico.
+ * Body: { titulo, cuerpo }
+ */
+export const notificarUsuario = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { titulo, cuerpo } = req.body
+
+    if (!titulo?.trim() || !cuerpo?.trim()) {
+      return badRequest(res, 'El título y el mensaje son obligatorios')
+    }
+
+    // Obtener el FCM token del usuario
+    const { rows } = await query(
+      'SELECT id, nombre, fcm_token FROM usuarios WHERE id = $1',
+      [id]
+    )
+
+    if (rows.length === 0) {
+      return notFound(res, 'Usuario no encontrado')
+    }
+
+    const usuario = rows[0]
+
+    if (!usuario.fcm_token) {
+      return badRequest(res, `${usuario.nombre} no tiene un dispositivo registrado para recibir notificaciones`)
+    }
+
+    await sendNotification({
+      usuario_id: usuario.id,
+      tipo: 'sistema_alerta',
+      titulo: titulo.trim(),
+      cuerpo: cuerpo.trim(),
+      fcm_token: usuario.fcm_token
+    })
+
+    return success(res, null, `Notificación enviada a ${usuario.nombre}`)
+  } catch (err) {
+    next(err)
+  }
+}
