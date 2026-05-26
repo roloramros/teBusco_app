@@ -35,10 +35,6 @@
             android:icon="@android:drawable/ic_menu_directions"
             android:title="Mis Vehículos" />
         <item
-            android:id="@+id/nav_driver_verification"
-            android:icon="@android:drawable/ic_menu_save"
-            android:title="Verificacion y Licencia" />
-        <item
             android:id="@+id/nav_mi_licencia"
             android:icon="@android:drawable/ic_menu_info_details"
             android:title="Mi Licencia" />

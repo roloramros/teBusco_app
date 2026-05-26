@@ -483,13 +483,19 @@ export const getMiLicencia = async (req, res) => {
         l.suscripcion_fin,
         l.ultimo_pago,
         l.monto_mensual,
+        l.saldo_fondo,
         CASE
           WHEN l.estado = 'TRIAL_ACTIVO'
             THEN GREATEST(0, EXTRACT(DAY FROM l.trial_fin - NOW())::int)
           WHEN l.estado = 'ACTIVO'
             THEN GREATEST(0, EXTRACT(DAY FROM l.suscripcion_fin - NOW())::int)
           ELSE 0
-        END AS dias_restantes
+        END AS dias_restantes,
+        CASE
+          WHEN l.estado = 'TRIAL_ACTIVO' THEN l.trial_fin
+          WHEN l.estado = 'ACTIVO'       THEN l.suscripcion_fin
+          ELSE NULL
+        END AS proxima_renovacion
       FROM licencias_chofer l
       WHERE l.chofer_id = $1
     `, [choferId])

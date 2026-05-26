@@ -189,9 +189,6 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
                 MenuItem navDriverTrips = menu.findItem(R.id.nav_driver_trips);
                 if (navDriverTrips != null) navDriverTrips.setVisible(isChofer);
 
-                MenuItem navDriverVerif = menu.findItem(R.id.nav_driver_verification);
-                if (navDriverVerif != null) navDriverVerif.setVisible(isChofer);
-                
                 MenuItem navVehicles = menu.findItem(R.id.nav_my_vehicles);
                 if (navVehicles != null) navVehicles.setVisible(isChofer);
                 
@@ -411,10 +408,6 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
             if (!(this instanceof DriverTripsActivity)) {
                 intent = new Intent(this, DriverTripsActivity.class);
             }
-        } else if (id == R.id.nav_driver_verification) {
-            if (!(this instanceof VerificationActivity)) {
-                intent = new Intent(this, VerificationActivity.class);
-            }
         } else if (id == R.id.nav_driver_oferts) {
             if (!(this instanceof DriverOffersActivity)) {
                 intent = new Intent(this, DriverOffersActivity.class);
@@ -428,8 +421,8 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
                 intent = new Intent(this, DriverProfileActivity.class);
             }
         } else if (id == R.id.nav_mi_licencia) {
-            if (!(this instanceof MiLicenciaActivity)) {
-                intent = new Intent(this, MiLicenciaActivity.class);
+            if (!(this instanceof VerificationActivity)) {
+                intent = new Intent(this, VerificationActivity.class);
             }
         }
 

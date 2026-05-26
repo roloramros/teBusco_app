@@ -30,7 +30,7 @@
 
         </com.google.android.material.appbar.AppBarLayout>
 
-        <!-- Progress bar de carga -->
+        <!-- ProgressBar de carga inicial -->
         <ProgressBar
             android:id="@+id/progressBar"
             android:layout_width="wrap_content"
@@ -39,7 +39,7 @@
             android:visibility="visible"
             app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
-        <!-- Contenido principal (oculto mientras carga) -->
+        <!-- Contenido principal -->
         <androidx.core.widget.NestedScrollView
             android:id="@+id/layoutContenido"
             android:layout_width="match_parent"
@@ -51,100 +51,119 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="20dp"
+                android:padding="24dp"
                 android:gravity="center_horizontal">
 
-                <!-- Ícono de estado -->
-                <ImageView
-                    android:id="@+id/ivStatusIcon"
-                    android:layout_width="96dp"
-                    android:layout_height="96dp"
-                    android:layout_marginTop="32dp"
-                    android:src="@android:drawable/ic_menu_recent_history" />
-
-                <!-- Título de estado -->
+                <!-- 1. BADGE DE ESTADO -->
                 <TextView
-                    android:id="@+id/tvStatusTitle"
+                    android:id="@+id/tvEstadoBadge"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="Cargando..."
-                    android:textSize="20sp"
+                    android:paddingStart="20dp"
+                    android:paddingEnd="20dp"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="6dp"
+                    android:text="TRIAL ACTIVO"
+                    android:textSize="12sp"
                     android:textStyle="bold"
-                    android:gravity="center" />
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.08"
+                    android:background="@drawable/bg_badge_estado" />
 
-                <!-- Descripción -->
-                <TextView
-                    android:id="@+id/tvStatusDesc"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:gravity="center"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="14sp"
-                    android:lineSpacingMultiplier="1.4" />
+                <!-- 2. CÍRCULO DE PROGRESO -->
+                <!-- Usamos un FrameLayout para superponer el ProgressBar circular y el texto -->
+                <FrameLayout
+                    android:id="@+id/frameCirculo"
+                    android:layout_width="220dp"
+                    android:layout_height="220dp"
+                    android:layout_marginTop="32dp"
+                    android:visibility="gone">
 
-                <!-- Card: Contador de días restantes -->
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardContador"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="24dp"
-                    android:visibility="gone"
-                    app:cardCornerRadius="16dp"
-                    app:cardElevation="2dp"
-                    app:cardBackgroundColor="@color/surface_white">
+                    <!-- Track de fondo (círculo gris) -->
+                    <ProgressBar
+                        android:id="@+id/progressCircleTrack"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="220dp"
+                        android:layout_height="220dp"
+                        android:layout_gravity="center"
+                        android:indeterminate="false"
+                        android:progress="100"
+                        android:progressDrawable="@drawable/circle_track"
+                        android:rotation="-90" />
 
+                    <!-- Progreso real (círculo de color) -->
+                    <ProgressBar
+                        android:id="@+id/progressCircle"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="220dp"
+                        android:layout_height="220dp"
+                        android:layout_gravity="center"
+                        android:indeterminate="false"
+                        android:progress="100"
+                        android:max="100"
+                        android:progressDrawable="@drawable/circle_progress"
+                        android:rotation="-90" />
+
+                    <!-- Texto central dentro del círculo -->
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="match_parent"
                         android:orientation="vertical"
-                        android:gravity="center"
-                        android:padding="24dp">
+                        android:gravity="center">
 
                         <TextView
                             android:id="@+id/tvDiasNumero"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="--"
-                            android:textSize="64sp"
+                            android:textSize="56sp"
                             android:textStyle="bold"
-                            android:textColor="@color/success_green" />
+                            android:textColor="@color/text_primary" />
 
                         <TextView
                             android:id="@+id/tvDiasLabel"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="días restantes"
-                            android:textSize="16sp"
-                            android:textColor="@color/text_primary"
-                            android:layout_marginTop="4dp" />
+                            android:text="días"
+                            android:textSize="14sp"
+                            android:textColor="@color/text_secondary" />
 
                         <TextView
-                            android:id="@+id/tvContadorSubtitle"
+                            android:id="@+id/tvDiasSubtitulo"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="de período de prueba"
-                            android:textSize="13sp"
-                            android:textColor="@color/text_secondary"
-                            android:layout_marginTop="4dp" />
+                            android:layout_marginTop="2dp"
+                            android:text="restantes"
+                            android:textSize="12sp"
+                            android:textColor="@color/text_secondary" />
 
                     </LinearLayout>
 
-                </com.google.android.material.card.MaterialCardView>
+                </FrameLayout>
 
-                <!-- Card: Instrucciones de pago -->
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardPago"
+                <!-- Mensaje para estados sin círculo (SUSPENDIDO, BLOQUEADO, etc.) -->
+                <TextView
+                    android:id="@+id/tvMensajeEstado"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="24dp"
+                    android:gravity="center"
+                    android:textSize="15sp"
+                    android:textColor="@color/text_secondary"
+                    android:lineSpacingMultiplier="1.4"
+                    android:visibility="gone" />
+
+                <!-- 3. CARD: Fondo, próxima renovación y cuota -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardFondo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="28dp"
                     android:visibility="gone"
-                    app:cardCornerRadius="16dp"
-                    app:cardElevation="2dp"
-                    app:cardBackgroundColor="@color/surface_white"
-                    app:strokeColor="@color/warning_amber"
-                    app:strokeWidth="1dp">
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="3dp"
+                    app:cardBackgroundColor="@color/surface_white">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -152,46 +171,134 @@
                         android:orientation="vertical"
                         android:padding="20dp">
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="¿Cómo renovar mi licencia?"
-                            android:textSize="16sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary" />
-
-                        <TextView
-                            android:id="@+id/tvMontoPago"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="12dp"
-                            android:textSize="15sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/primary_blue"
-                            android:visibility="gone" />
-
-                        <TextView
+                        <!-- Saldo en fondo -->
+                        <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="12dp"
-                            android:text="1. Contacta al administrador de Te Busco\n2. Realiza el pago acordado\n3. El administrador activará tu licencia\n4. Recibirás una notificación de confirmación"
-                            android:textSize="14sp"
-                            android:textColor="@color/text_secondary"
-                            android:lineSpacingMultiplier="1.6" />
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
 
-                        <TextView
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="SALDO EN FONDO"
+                                    android:textSize="10sp"
+                                    android:textStyle="bold"
+                                    android:textAllCaps="true"
+                                    android:letterSpacing="0.08"
+                                    android:textColor="@color/text_secondary" />
+
+                                <TextView
+                                    android:id="@+id/tvSaldoFondo"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:text="$0.00"
+                                    android:textSize="28sp"
+                                    android:textStyle="bold"
+                                    android:textColor="@color/primary_blue" />
+
+                            </LinearLayout>
+
+                            <!-- Indicador visual de si el saldo alcanza para renovar -->
+                            <TextView
+                                android:id="@+id/tvSaldoIndicador"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:paddingStart="12dp"
+                                android:paddingEnd="12dp"
+                                android:paddingTop="6dp"
+                                android:paddingBottom="6dp"
+                                android:textSize="11sp"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
+
+                        </LinearLayout>
+
+                        <!-- Divider -->
+                        <View
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
+                            android:layout_height="1dp"
                             android:layout_marginTop="16dp"
-                            android:background="@drawable/bg_rounded_gray"
-                            android:padding="12dp"
-                            android:text="📞 Contacto: Disponible en la sección de soporte"
-                            android:textSize="13sp"
-                            android:textColor="@color/text_secondary" />
+                            android:layout_marginBottom="16dp"
+                            android:background="#F0F0F0" />
+
+                        <!-- Próxima renovación -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Próxima renovación"
+                                android:textSize="13sp"
+                                android:textColor="@color/text_secondary" />
+
+                            <TextView
+                                android:id="@+id/tvProximaRenovacion"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/text_primary" />
+
+                        </LinearLayout>
+
+                        <!-- Cuota mensual -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Cuota mensual"
+                                android:textSize="13sp"
+                                android:textColor="@color/text_secondary" />
+
+                            <TextView
+                                android:id="@+id/tvCuotaMensual"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/text_primary" />
+
+                        </LinearLayout>
 
                     </LinearLayout>
 
                 </com.google.android.material.card.MaterialCardView>
+
+                <!-- 4. BOTÓN: ¿Cómo Recargar? -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnComoRecargar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:text="¿Cómo Recargar?"
+                    android:textSize="15sp"
+                    app:cornerRadius="14dp"
+                    app:icon="@android:drawable/ic_menu_help"
+                    app:iconGravity="textStart"
+                    app:iconSize="18dp"
+                    android:visibility="gone" />
 
                 <!-- Card: Cuenta bloqueada -->
                 <com.google.android.material.card.MaterialCardView
@@ -215,7 +322,7 @@
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Para conocer el motivo del bloqueo y resolver tu situación, contacta al administrador del sistema."
+                            android:text="Tu cuenta ha sido bloqueada por el administrador del sistema. Contacta al soporte para obtener más información."
                             android:textSize="14sp"
                             android:textColor="@color/text_secondary"
                             android:lineSpacingMultiplier="1.4" />
@@ -234,7 +341,6 @@
                     android:visibility="gone"
                     app:cornerRadius="12dp" />
 
-                <!-- Spacer inferior -->
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="32dp" />

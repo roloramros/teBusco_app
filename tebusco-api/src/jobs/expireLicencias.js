@@ -6,7 +6,7 @@ export function startExpireLicenciasJob() {
   console.log('🪪  Job de expiración y renovación de licencias iniciado.')
 
   // Ejecutar una vez al día a las 2:00 AM
-  cron.schedule('42 14 * * *', async () => {
+  cron.schedule('05 04 * * *', async () => {
     console.log('🔄 [LicenciaJob] Revisando licencias y renovaciones automáticas...')
     const client = await getClient()
     try {

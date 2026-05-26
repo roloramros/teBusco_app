@@ -28,6 +28,9 @@ public class Licencia {
     @SerializedName("saldo_fondo")
     private double saldoFondo;
 
+    @SerializedName("proxima_renovacion")
+    private String proximaRenovacion;
+
     public String getEstado() { return estado; }
     public int getDiasRestantes() { return diasRestantes; }
     public String getTrialInicio() { return trialInicio; }
@@ -36,6 +39,7 @@ public class Licencia {
     public String getUltimoPago() { return ultimoPago; }
     public double getMontoMensual() { return montoMensual; }
     public double getSaldoFondo() { return saldoFondo; }
+    public String getProximaRenovacion() { return proximaRenovacion; }
 
     // Helpers de lógica
     public boolean puedeOperar() {
