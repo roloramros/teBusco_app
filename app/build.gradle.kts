@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.google.services)
@@ -16,12 +18,17 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    val localProps = Properties().apply {
+        val propsFile = rootProject.file("local.properties")
+        if (propsFile.exists()) load(propsFile.inputStream())
+    }
+
     signingConfigs {
         create("release") {
             storeFile = file("../te-busco-release-sign.jks")
-            storePassword = "EnzoDaniel*2023"
-            keyAlias = "release"
-            keyPassword = "te-busco-release-sign"
+            storePassword = localProps.getProperty("KEYSTORE_PASSWORD") ?: ""
+            keyAlias = localProps.getProperty("KEY_ALIAS") ?: ""
+            keyPassword = localProps.getProperty("KEY_PASSWORD") ?: ""
         }
     }
 

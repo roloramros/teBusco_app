@@ -3,16 +3,21 @@ package com.codram.terecojo.data.model;
 import com.google.gson.annotations.SerializedName;
 
 public class Vehicle {
+    @SerializedName("id")
     private String id;
     @SerializedName("chofer_id")
     private String choferId;
+    @SerializedName("marca")
     private String marca;
+    @SerializedName("placa")
     private String placa;
+    @SerializedName("tipo")
     private String tipo;
     @SerializedName("capacidad_pasajeros")
     private Integer capacidadPasajeros;
     @SerializedName("foto_url")
     private String fotoUrl;
+    @SerializedName("activo")
     private boolean activo;
 
     // Getters
@@ -22,4 +27,5 @@ public class Vehicle {
     public String getTipo() { return tipo; }
     public Integer getCapacidadPasajeros() { return capacidadPasajeros; }
     public String getFotoUrl() { return fotoUrl; }
+    public boolean isActivo() { return activo; }
 }

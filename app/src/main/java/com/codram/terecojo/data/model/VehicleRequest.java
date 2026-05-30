@@ -3,8 +3,11 @@ package com.codram.terecojo.data.model;
 import com.google.gson.annotations.SerializedName;
 
 public class VehicleRequest {
+    @SerializedName("marca")
     private String marca;
+    @SerializedName("placa")
     private String placa;
+    @SerializedName("tipo")
     private String tipo;
     @SerializedName("capacidad_pasajeros")
     private Integer capacidadPasajeros;

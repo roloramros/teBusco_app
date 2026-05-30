@@ -6,6 +6,8 @@ import java.util.List;
 
 public class RideRequest implements Serializable {
     private static final long serialVersionUID = 1L;
+    
+    @SerializedName("id")
     private String id;
     
     @SerializedName("pasajero_id")
@@ -35,12 +37,13 @@ public class RideRequest implements Serializable {
     @SerializedName("destino_lng")
     private double destinoLng;
     
-    // Paradas intermedias (Opción B: JSONB)
+    @SerializedName("paradas")
     private List<Stop> paradas;
     
     @SerializedName("precio_oferta")
-    private double precioOferta;
+    private double precioOffer;
     
+    @SerializedName("moneda")
     private List<String> moneda;
     
     @SerializedName("num_pasajeros")
@@ -49,8 +52,10 @@ public class RideRequest implements Serializable {
     @SerializedName("tipo_carga")
     private String tipoCarga;
     
+    @SerializedName("descripcion")
     private String descripcion;
     
+    @SerializedName("estado")
     private String estado;
     
     @SerializedName("es_inmediato")
@@ -86,11 +91,13 @@ public class RideRequest implements Serializable {
     @SerializedName("ha_respondido")
     private boolean haRespondido;
 
-    // Clase interna para las paradas
     public static class Stop implements Serializable {
         private static final long serialVersionUID = 1L;
+        @SerializedName("nombre")
         private String nombre;
+        @SerializedName("lat")
         private double lat;
+        @SerializedName("lng")
         private double lng;
 
         public Stop(String nombre, double lat, double lng) {
@@ -107,10 +114,8 @@ public class RideRequest implements Serializable {
         public void setLng(double lng) { this.lng = lng; }
     }
 
-    // Constructor para nueva solicitud
     public RideRequest() {}
 
-    // Constructor para compatibilidad con datos de prueba
     public RideRequest(String id, String pasajeroNombre, String origenDescripcion, String destinoDescripcion) {
         this.id = id;
         this.pasajeroNombre = pasajeroNombre;
@@ -118,7 +123,6 @@ public class RideRequest implements Serializable {
         this.destinoDescripcion = destinoDescripcion;
     }
 
-    // Getters y Setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
     
@@ -131,7 +135,6 @@ public class RideRequest implements Serializable {
     public String getPasajeroTelefono() { return pasajeroTelefono; }
     public void setPasajeroTelefono(String pasajeroTelefono) { this.pasajeroTelefono = pasajeroTelefono; }
     
-    // Alias para compatibilidad con adaptadores existentes
     public String getPassengerName() { return pasajeroNombre; }
     public String getOrigin() { return origenDescripcion; }
     public String getDestination() { return destinoDescripcion; }
@@ -157,8 +160,8 @@ public class RideRequest implements Serializable {
     public List<Stop> getParadas() { return paradas; }
     public void setParadas(List<Stop> paradas) { this.paradas = paradas; }
     
-    public double getPrecioOferta() { return precioOferta; }
-    public void setPrecioOferta(double precioOferta) { this.precioOferta = precioOferta; }
+    public double getPrecioOferta() { return precioOffer; }
+    public void setPrecioOferta(double precioOferta) { this.precioOffer = precioOferta; }
     
     public List<String> getMoneda() { return moneda; }
     public void setMoneda(List<String> moneda) { this.moneda = moneda; }
