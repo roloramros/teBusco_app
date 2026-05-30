@@ -16,18 +16,28 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../te-busco-release-sign.jks")
+            storePassword = "EnzoDaniel*2023"
+            keyAlias = "release"
+            keyPassword = "te-busco-release-sign"
+        }
+    }
+
     buildTypes {
         debug {
             buildConfigField("String", "API_BASE_URL", "\"http://69.169.102.33:8005/\"")
         }
         release {
-            buildConfigField("String", "API_BASE_URL", "\"http://69.169.102.33:8004/\"")
-            isMinifyEnabled = false
+            buildConfigField("String", "API_BASE_URL", "\"https://https://tebusco.duckdns.org/\"")
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
