@@ -30,7 +30,7 @@ android {
             buildConfigField("String", "API_BASE_URL", "\"http://69.169.102.33:8005/\"")
         }
         release {
-            buildConfigField("String", "API_BASE_URL", "\"https://https://tebusco.duckdns.org/\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://tebusco.duckdns.org/\"")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
