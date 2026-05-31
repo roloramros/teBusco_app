@@ -34,7 +34,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "API_BASE_URL", "\"http://69.169.102.33:8005/\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://tebusco-dev.duckdns.org/\"")
         }
         release {
             buildConfigField("String", "API_BASE_URL", "\"https://tebusco.duckdns.org/\"")

@@ -179,9 +179,6 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
                 MenuItem navTrips = menu.findItem(R.id.nav_trips);
                 if (navTrips != null) navTrips.setVisible(isPasajero);
                 
-                MenuItem navSites = menu.findItem(R.id.nav_frequent_sites);
-                if (navSites != null) navSites.setVisible(isPasajero);
-                
                 // Items de Chofer
                 MenuItem navRadar = menu.findItem(R.id.nav_driver_radar);
                 if (navRadar != null) navRadar.setVisible(isChofer);
@@ -212,14 +209,6 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
             // Configurar clic en ícono de configuraciones en el header
             android.view.View headerView = navigationView.getHeaderView(0);
             if (headerView != null) {
-                android.view.View ivSettings = headerView.findViewById(R.id.ivSettings);
-                if (ivSettings != null) {
-                    ivSettings.setOnClickListener(v -> {
-                        Toast.makeText(this, "Próximamente: Configuraciones", Toast.LENGTH_SHORT).show();
-                        if (drawerLayout != null) drawerLayout.closeDrawers();
-                    });
-                }
-
                 android.view.View ivNotifications = headerView.findViewById(R.id.ivNotifications);
                 if (ivNotifications != null) {
                     ivNotifications.setOnClickListener(v -> {
@@ -341,10 +330,6 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.action_filter) {
-            Toast.makeText(this, "Próximamente: Filtros", Toast.LENGTH_SHORT).show();
-            return true;
-        }
         return super.onOptionsItemSelected(item);
     }
 
@@ -397,20 +382,12 @@ public abstract class BaseActivity extends AppCompatActivity implements OnMapRea
             if (!(this instanceof MyRequestsActivity)) {
                 intent = new Intent(this, MyRequestsActivity.class);
             }
-        } else if (id == R.id.nav_frequent_sites) {
-            if (!(this instanceof FrequentSitesActivity)) {
-                intent = new Intent(this, FrequentSitesActivity.class);
-            }
         } else if (id == R.id.nav_driver_radar) {
             intent = new Intent(this, DriverActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         } else if (id == R.id.nav_driver_trips) {
             if (!(this instanceof DriverTripsActivity)) {
                 intent = new Intent(this, DriverTripsActivity.class);
-            }
-        } else if (id == R.id.nav_driver_oferts) {
-            if (!(this instanceof DriverOffersActivity)) {
-                intent = new Intent(this, DriverOffersActivity.class);
             }
         } else if (id == R.id.nav_my_vehicles) {
             if (!(this instanceof MyVehiclesActivity)) {
