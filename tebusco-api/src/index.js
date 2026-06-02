@@ -32,7 +32,10 @@ app.set('trust proxy', 1)
 // ══════════════════════════════════════════════════════════
 
 // Helmet: cabeceras HTTP de seguridad
-app.use(helmet())
+// Configuramos crossOriginResourcePolicy en 'cross-origin' para que las imágenes puedan cargarse desde el frontend
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}))
 
 // Servir archivos estáticos (para las fotos de los vehículos)
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')))

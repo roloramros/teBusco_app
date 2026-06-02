@@ -2,14 +2,19 @@ import { useState, useEffect } from 'react';
 import { getUsuarios, toggleUsuarioActivo, getProvincias, deleteUsuario, notificarUsuario } from '../api/admin';
 import { Table } from '../components/ui/Table';
 import { Badge } from '../components/ui/Badge';
+import { Pagination } from '../components/ui/Pagination';
 import { formatDateShort } from '../utils/formatters';
 import toast from 'react-hot-toast';
 
 const Usuarios = () => {
  const [data, setData] = useState([]);
+ const [total, setTotal] = useState(0);
+ const [page, setPage] = useState(1);
+ const ITEMS_PER_PAGE = 20;
+
  const [provincias, setProvincias] = useState([]);
  const [loading, setLoading] = useState(true);
- const [filter, setFilter] = useState({ tipo: '', activo: '', provincia_id: '' });
+ const [filter, setFilter] = useState({ tipo: '', activo: '', provincia_id: '', search: '' });
 
  const [modalNotif, setModalNotif] = useState(null); // usuario seleccionado
  const [notifForm, setNotifForm] = useState({ titulo: '', cuerpo: '' });
@@ -61,9 +66,15 @@ const Usuarios = () => {
     getUsuarios({ 
       tipo: filter.tipo || undefined, 
       activo: filter.activo || undefined,
-      provincia_id: filter.provincia_id || undefined
+      provincia_id: filter.provincia_id || undefined,
+      search: filter.search || undefined,
+      page: page,
+      limit: ITEMS_PER_PAGE
     })
-      .then(setData)
+      .then(res => {
+        setData(res.data);
+        setTotal(res.total);
+      })
       .catch(() => toast.error('Error al cargar usuarios'))
       .finally(() => setLoading(false));
   };
@@ -73,8 +84,12 @@ const Usuarios = () => {
   }, []);
 
   useEffect(() => {
-    loadUsuarios();
+    setPage(1); // Resetear a la primera página si cambian los filtros
   }, [filter]);
+
+  useEffect(() => {
+    loadUsuarios();
+  }, [filter, page]);
 
   const handleToggle = async (user) => {
     if (!confirm(`¿Deseas ${user.activo ? 'desactivar' : 'activar'} a ${user.nombre}?`)) return;
@@ -147,9 +162,16 @@ const Usuarios = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-4 items-center bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+      <div className="flex gap-4 items-center bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex-wrap">
+        <input 
+          type="text"
+          placeholder="Buscar por nombre, usuario..."
+          className="px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm w-64"
+          value={filter.search}
+          onChange={(e) => setFilter(prev => ({ ...prev, search: e.target.value }))}
+        />
         <select 
-          className="px-4 py-2 border border-gray-200 rounded-lg outline-none"
+          className="px-4 py-2 border border-gray-200 rounded-lg outline-none text-sm"
           value={filter.tipo}
           onChange={(e) => setFilter(prev => ({ ...prev, tipo: e.target.value }))}
         >
@@ -178,6 +200,13 @@ const Usuarios = () => {
         </select>
       </div>
       <Table columns={columns} data={data} loading={loading} />
+
+      <Pagination 
+        currentPage={page} 
+        totalItems={total} 
+        itemsPerPage={ITEMS_PER_PAGE} 
+        onPageChange={setPage} 
+      />
 
       {/* Modal: Enviar notificación push */}
       {modalNotif && (

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { getChoferes, aprobarChofer, getProvincias, actualizarCuotaMasiva, getStats, getLicenciasStats, registrarPago, cambiarEstadoLicencia } from '../api/admin';
+import { getChoferes, getChoferById, aprobarChofer, getProvincias, actualizarCuotaMasiva, getStats, getLicenciasStats, registrarPago, cambiarEstadoLicencia } from '../api/admin';
 import { Table } from '../components/ui/Table';
 import { Badge } from '../components/ui/Badge';
+import { Pagination } from '../components/ui/Pagination';
 import { formatRating, formatDateShort } from '../utils/formatters';
 import toast from 'react-hot-toast';
 
@@ -272,8 +273,93 @@ const ModalCuotaMasiva = ({ onClose, onSuccess }) => {
   );
 };
 
+// — Modal: Ver Vehículos —
+const ModalVehiculos = ({ chofer, onClose }) => {
+  const [vehiculos, setVehiculos] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (chofer) {
+      setLoading(true);
+      getChoferById(chofer.id)
+        .then(res => {
+          setVehiculos(res.vehiculos || []);
+        })
+        .catch(() => toast.error('Error al cargar vehículos'))
+        .finally(() => setLoading(false));
+    }
+  }, [chofer]);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden">
+        <div className="p-6 border-b flex justify-between items-center bg-gray-50">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Vehículos Registrados</h2>
+            <p className="text-sm text-gray-500 mt-0.5">{chofer.nombre} · @{chofer.username}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <span className="text-2xl">×</span>
+          </button>
+        </div>
+        
+        <div className="p-6 max-h-[70vh] overflow-y-auto">
+          {loading ? (
+            <div className="py-12 text-center text-gray-500">Cargando vehículos...</div>
+          ) : vehiculos.length === 0 ? (
+            <div className="py-12 text-center text-gray-500 bg-gray-50 rounded-xl border-2 border-dashed">
+              Este chofer aún no ha registrado vehículos.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {vehiculos.map(v => (
+                <div key={v.id} className="border rounded-xl p-4 flex flex-col gap-3 hover:border-blue-200 transition-colors">
+                  <div className="aspect-video w-full bg-gray-100 rounded-lg overflow-hidden relative">
+                    {v.foto_url ? (
+                      <img src={v.foto_url} alt={v.marca} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        🚗 No hay foto
+                      </div>
+                    )}
+                    {!v.activo && (
+                      <div className="absolute top-2 right-2">
+                        <Badge status="inactivo">Eliminado</Badge>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex justify-between items-start">
+                      <p className="font-bold text-gray-900">{v.marca}</p>
+                      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-mono uppercase">{v.placa}</span>
+                    </div>
+                    <div className="mt-1 flex gap-2 flex-wrap">
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded uppercase">{v.tipo}</span>
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">👥 {v.capacidad_pasajeros} plazas</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <div className="p-6 border-t bg-gray-50 flex justify-end">
+          <button onClick={onClose} className="px-6 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Choferes = () => {
   const [data, setData] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
+
   const [provincias, setProvincias] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -281,6 +367,7 @@ const Choferes = () => {
   const [modalMasivo, setModalMasivo] = useState(false);
   const [modalPago, setModalPago] = useState(null);    // chofer seleccionado
   const [modalEstado, setModalEstado] = useState(null); // chofer seleccionado
+  const [modalVehiculos, setModalVehiculos] = useState(null); // chofer seleccionado
 
   const loadStats = () => {
     getLicenciasStats().then(setStats).catch(() => {});
@@ -307,10 +394,15 @@ const Choferes = () => {
       estado: filter.estado || undefined,
       pendiente: filter.pendiente ? '1' : undefined,
       provincia_id: filter.provincia_id || undefined,
-      search: filter.search || undefined
+      search: filter.search || undefined,
+      page: page,
+      limit: ITEMS_PER_PAGE
     };
     getChoferes(params)
-      .then(setData)
+      .then(res => {
+        setData(res.data);
+        setTotal(res.total);
+      })
       .catch(() => toast.error('Error al cargar choferes'))
       .finally(() => setLoading(false));
   };
@@ -320,8 +412,12 @@ const Choferes = () => {
   }, []);
 
   useEffect(() => {
-    loadChoferes();
+    setPage(1); // Resetear si cambian los filtros
   }, [filter]);
+
+  useEffect(() => {
+    loadChoferes();
+  }, [filter, page]);
 
   const handleSuccess = () => {
     loadChoferes();
@@ -419,6 +515,13 @@ const Choferes = () => {
           ) : (
             <>
               <button
+                onClick={() => setModalVehiculos(item)}
+                className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium rounded-lg"
+                title="Ver vehículos"
+              >
+                🚗 Autos
+              </button>
+              <button
                 onClick={() => setModalPago(item)}
                 className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg"
               >
@@ -512,6 +615,13 @@ const Choferes = () => {
 
       <Table columns={columns} data={data} loading={loading} />
 
+      <Pagination 
+        currentPage={page} 
+        totalItems={total} 
+        itemsPerPage={ITEMS_PER_PAGE} 
+        onPageChange={setPage} 
+      />
+
       {modalMasivo && (
         <ModalCuotaMasiva
           onClose={() => setModalMasivo(false)}
@@ -532,6 +642,13 @@ const Choferes = () => {
           chofer={modalEstado}
           onClose={() => setModalEstado(null)}
           onSuccess={handleSuccess}
+        />
+      )}
+
+      {modalVehiculos && (
+        <ModalVehiculos
+          chofer={modalVehiculos}
+          onClose={() => setModalVehiculos(null)}
         />
       )}
     </div>

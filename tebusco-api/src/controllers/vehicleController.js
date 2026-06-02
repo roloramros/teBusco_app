@@ -157,16 +157,16 @@ export const updateVehicle = async (req, res, next) => {
 }
 
 /**
- * Eliminar un vehículo (lógico o físico)
+ * Eliminar un vehículo (Lógica: desactivar para no romper integridad referencial)
  */
 export const deleteVehicle = async (req, res, next) => {
   try {
     const { id: vehicleId } = req.params
     const { id: usuarioId } = req.usuario
 
-    // Obtener info del vehículo para borrar la foto
+    // 1. Verificar que el vehículo pertenece al chofer
     const { rows: checkRows } = await query(
-      `SELECT v.foto_url FROM vehiculos v
+      `SELECT v.id, c.id as chofer_id FROM vehiculos v
        JOIN choferes c ON v.chofer_id = c.id
        WHERE v.id = $1 AND c.usuario_id = $2`,
       [vehicleId, usuarioId]
@@ -176,17 +176,22 @@ export const deleteVehicle = async (req, res, next) => {
       return notFound(res, 'Vehículo no encontrado o no te pertenece')
     }
 
-    const { foto_url } = checkRows[0]
+    const choferId = checkRows[0].chofer_id
 
-    const { rowCount } = await query(
-      `DELETE FROM vehiculos
-       WHERE id = $1 AND chofer_id = (SELECT id FROM choferes WHERE usuario_id = $2)`,
-      [vehicleId, usuarioId]
+    // 2. Desactivar el vehículo (borrado lógico)
+    await query(
+      `UPDATE vehiculos SET activo = false WHERE id = $1`,
+      [vehicleId]
     )
 
-    if (rowCount > 0) {
-      deleteFile(foto_url)
-    }
+    // 3. Si era el vehículo activo del chofer, quitarlo y desactivar su visibilidad
+    await query(
+      `UPDATE choferes SET 
+         vehiculo_activo_id = NULL,
+         visible_en_mapa = false
+       WHERE id = $1 AND vehiculo_activo_id = $2`,
+      [choferId, vehicleId]
+    )
 
     return success(res, null, 'Vehículo eliminado correctamente')
   } catch (err) {
