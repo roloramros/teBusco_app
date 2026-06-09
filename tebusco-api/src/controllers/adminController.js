@@ -442,6 +442,11 @@ export const getSolicitudes = async (req, res, next) => {
       params.push(estado)
     }
 
+    if (req.query.provincia_id) {
+      whereClauses.push(`s.origen_provincia_id = $${params.length + 1}`)
+      params.push(req.query.provincia_id)
+    }
+
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
 
     const sql = `

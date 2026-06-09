@@ -391,7 +391,7 @@ export const aceptarRespuesta = async (req, res, next) => {
 
     // 4. Actualizar la solicitud: asignar chofer y cambiar estado
     await client.query(
-      "UPDATE solicitudes SET chofer_seleccionado_id = $1, estado = 'en_proceso' WHERE id = $2",
+      "UPDATE solicitudes SET chofer_seleccionado_id = $1, estado = 'en_proceso', aceptada_en = NOW() WHERE id = $2",
       [oferta.chofer_id, oferta.solicitud_id]
     )
 
